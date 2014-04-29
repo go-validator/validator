@@ -63,17 +63,37 @@ func NewValidator() *Validator {
 }
 
 // SetTag allows you to change the tag name used in structs
-func SetTag(tag string) error {
-	return defaultValidator.SetTag(tag)
+func SetTag(tag string) {
+	defaultValidator.SetTag(tag)
 }
 
 // SetTag allows you to change the tag name used in structs
-func (mv *Validator) SetTag(tag string) error {
-	if valid, _ := mv.Valid(tag, "nonzero"); valid {
-		mv.tagName = tag
-		return nil
+func (mv *Validator) SetTag(tag string) {
+	mv.tagName = tag
+}
+
+// WithTag creates a new Validator with the new tag name. It is
+// useful to chain-call with Validate so we don't change the tag
+// name permanently: validator.WithTag("foo").Validate(t)
+func WithTag(tag string) *Validator {
+	return defaultValidator.WithTag(tag)
+}
+
+// WithTag creates a new Validator with the new tag name. It is
+// useful to chain-call with Validate so we don't change the tag
+// name permanently: validator.WithTag("foo").Validate(t)
+func (mv *Validator) WithTag(tag string) *Validator {
+	v := mv.copy()
+	v.SetTag(tag)
+	return v
+}
+
+// Copy a validator
+func (mv *Validator) copy() *Validator {
+	return &Validator{
+		tagName:         mv.tagName,
+		validationFuncs: mv.validationFuncs,
 	}
-	return ErrZeroValue
 }
 
 // SetValidationFunc sets the function to be used for a given

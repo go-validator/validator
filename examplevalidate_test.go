@@ -112,3 +112,19 @@ func ExampleSetTag() {
 	// foo --> valid: true, errs: map[]
 	// bar --> valid: false, errs: map[A:[less than min]]
 }
+
+// This example shows you how to change the tag name
+func ExampleWithTag() {
+	type T struct {
+		A int `foo:"nonzero" bar:"min=10"`
+	}
+	t := T{5}
+	valid, errs := validator.WithTag("foo").Validate(t)
+	fmt.Printf("foo --> valid: %v, errs: %v\n", valid, errs)
+	valid, errs = validator.WithTag("bar").Validate(t)
+	fmt.Printf("bar --> valid: %v, errs: %v\n", valid, errs)
+
+	// Output:
+	// foo --> valid: true, errs: map[]
+	// bar --> valid: false, errs: map[A:[less than min]]
+}
