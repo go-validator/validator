@@ -126,6 +126,26 @@ SetTag is probably better used with multiple validators.
 This keeps the default validator's tag clean. Again, please refer to
 godocs for a lot of more examples and different uses.
 
+Pull requests policy
+====================
+
+tl;dr. Contributions are welcome.
+
+The repository is organized in version branches. Pull requests to, say, the
+`v1` branch that break API compatibility will not be accepted. It is okay to
+break the API in master, *not in the branches*.
+
+As for validation functions, the preference is to keep the main code simple
+and add most new functions to the validator-contrib repository.
+
+https://github.com/go-validator/validator-contrib
+
+For improvements and/or fixes to the builtin validation functions, please
+make sure the behaviour will not break existing functionality in the branches.
+If you see a case where the functionality of the builtin will change
+significantly, please send a pull request against `master`. We can discuss then
+whether the changes should be incorporated in the version branches as well.
+
 License
 =======
 
