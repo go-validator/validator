@@ -184,6 +184,14 @@ Then.
 		B string `valid:"nonzero"`
 	}
 
+SetTag is permanent. The new tag name will be used until it is again changed
+with a new call to SetTag. A way to temporarily use a different tag exists.
+
+	validator.WithTag("foo").Validate(t)
+	validator.WithTag("bar").Validate(t)
+	// But this will go back to using 'validate'
+	validator.Validate(t)
+
 Multiple validators
 
 You may often need to have a different set of validation
@@ -249,7 +257,8 @@ You might use two different validators.
 	}
 
 It is also possible to do all of that using only the default validator as long
-as SetTag is always called before calling validator.Validate().
+as SetTag is always called before calling validator.Validate() or you chain the
+with WithTag().
 
 */
 package validator
