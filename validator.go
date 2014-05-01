@@ -23,12 +23,24 @@ import (
 )
 
 var (
-	ErrZeroValue   = errors.New("zero value")
-	ErrMin         = errors.New("less than min")
-	ErrMax         = errors.New("greater than max")
-	ErrLen         = errors.New("invalid length")
+	// ErrZeroValue is the error returned when variable has zero valud
+	// and nonzero was specified
+	ErrZeroValue = errors.New("zero value")
+	// ErrMin is the error returned when variable is less than mininum
+	// value specified
+	ErrMin = errors.New("less than min")
+	// ErrMax is the error returned when variable is more than
+	// maximum specified
+	ErrMax = errors.New("greater than max")
+	// ErrLen is the error returned when length is not equal to
+	// param specified
+	ErrLen = errors.New("invalid length")
+	// ErrUnsupported is the error error returned when a validation rule
+	// is used with an unsupported variable type
 	ErrUnsupported = errors.New("unsupported type")
-	ErrInvalid     = errors.New("invalid value")
+	// ErrInvalid is the error returned when variable is invalid
+	// (normally a nil pointer)
+	ErrInvalid = errors.New("invalid value")
 )
 
 // ValidationFunc is a function that receives the value of a
