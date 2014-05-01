@@ -17,8 +17,8 @@
 package validator_test
 
 import (
-	"testing"
 	. "gopkg.in/check.v1"
+	"testing"
 
 	"gopkg.in/validator.v1"
 )
@@ -225,4 +225,4 @@ func (c *hasErrorChecker) Info() *CheckerInfo {
 	return c.CheckerInfo
 }
 
-var HasError Checker = &hasErrorChecker{&CheckerInfo{Name: "HasError", Params: []string{"HasError", "expected to contain"}}}
+var HasError = &hasErrorChecker{&CheckerInfo{Name: "HasError", Params: []string{"HasError", "expected to contain"}}}
