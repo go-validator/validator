@@ -70,7 +70,7 @@ func ExampleValidate() {
 	// Street cannot be empty.
 	// Invalid due to fields:
 	//	 - Age ([less than min])
-	//	 - Email ([regexp does not match])
+	//	 - Email ([regular expression mismatch])
 	//	 - Address.Street ([zero value])
 }
 

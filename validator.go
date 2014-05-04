@@ -35,9 +35,18 @@ var (
 	// ErrLen is the error returned when length is not equal to
 	// param specified
 	ErrLen = errors.New("invalid length")
+	// ErrRegexp is the error returned when the value does not
+	// match the provided regular expression parameter
+	ErrRegexp = errors.New("regular expression mismatch")
 	// ErrUnsupported is the error error returned when a validation rule
 	// is used with an unsupported variable type
 	ErrUnsupported = errors.New("unsupported type")
+	// ErrBadParameter is the error returned when an invalid parameter
+	// is provided to a validation rule (e.g. a string where an int was
+	// expected (max=foo,len=bar) or missing a parameter when one is required (len=))
+	ErrBadParameter = errors.New("bad parameter")
+	// ErrUnknownTag is the error returned when an unknown tag is found
+	ErrUnknownTag = errors.New("unknown tag")
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
 	ErrInvalid = errors.New("invalid value")
@@ -219,7 +228,11 @@ func (mv *Validator) Valid(val interface{}, tags string) (bool, []error) {
 
 // validateVar validates one single variable
 func (mv *Validator) validateVar(v interface{}, tag string) []error {
-	tags := mv.parseTags(tag)
+	tags, err := mv.parseTags(tag)
+	if err != nil {
+		// unknown tag found, give up.
+		return []error{err}
+	}
 	errs := make([]error, 0, len(tags))
 	for _, t := range tags {
 		if err := t.Fn(v, t.Param); err != nil {
@@ -237,8 +250,7 @@ type tag struct {
 }
 
 // parseTags parses all individual tags found within a struct tag.
-// These usually are in the
-func (mv *Validator) parseTags(t string) []tag {
+func (mv *Validator) parseTags(t string) ([]tag, error) {
 	tl := strings.Split(t, ",")
 	tags := make([]tag, 0, len(tl))
 	for _, i := range tl {
@@ -246,18 +258,17 @@ func (mv *Validator) parseTags(t string) []tag {
 		v := strings.SplitN(i, "=", 2)
 		tg.Name = strings.Trim(v[0], " ")
 		if tg.Name == "" {
-			panic("empty tag")
+			return []tag{}, ErrUnknownTag
 		}
 		if len(v) > 1 {
 			tg.Param = strings.Trim(v[1], " ")
 		}
 		var found bool
 		if tg.Fn, found = mv.validationFuncs[tg.Name]; !found {
-			panic("invalid tag " + tg.Name)
+			return []tag{}, ErrUnknownTag
 		}
-
 		tags = append(tags, tg)
 
 	}
-	return tags
+	return tags, nil
 }

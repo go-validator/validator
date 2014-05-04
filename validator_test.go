@@ -17,8 +17,8 @@
 package validator_test
 
 import (
-	. "gopkg.in/check.v1"
 	"testing"
+	. "gopkg.in/check.v1"
 
 	"gopkg.in/validator.v1"
 )
@@ -178,21 +178,44 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 	c.Assert(errs, HasError, validator.ErrUnsupported)
 }
 
-/*
-func (ms *MySuite) TestValidateVar1(c *C) {
-	t1 := TestStruct{Number: 123, Text: "Blah"}
-
-	//s := reflect.ValueOf(t).Elem()
-	s := reflect.ValueOf(t1)
-	st := s.Type()
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		fmt.Printf("%d: %s %s %s = %v\n", i,
-			st.Field(i).Name, f.Type(), st.Field(i).Tag.Get("validator"), f.Interface())
+func (ms *MySuite) TestUnknownTag(c *C) {
+	type test struct {
+		A int `validate:"foo"`
 	}
-
+	t := test{}
+	valid, errs := validator.Validate(t)
+	c.Assert(valid, Equals, false)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["A"], HasError, validator.ErrUnknownTag)
 }
-*/
+
+func (ms *MySuite) TestUnsupported(c *C) {
+	type test struct {
+		A int     `validate:"regexp=a.*b"`
+		B float64 `validate:"regexp=.*"`
+	}
+	t := test{}
+	valid, errs := validator.Validate(t)
+	c.Assert(valid, Equals, false)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["A"], HasError, validator.ErrUnsupported)
+	c.Assert(errs["B"], HasError, validator.ErrUnsupported)
+}
+
+func (ms *MySuite) TestBadParameter(c *C) {
+	type test struct {
+		A string `validate:"min="`
+		B string `validate:"len=="`
+		C string `validate:"max=foo"`
+	}
+	t := test{}
+	valid, errs := validator.Validate(t)
+	c.Assert(valid, Equals, false)
+	c.Assert(errs, HasLen, 3)
+	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
+	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
+	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+}
 
 type hasErrorChecker struct {
 	*CheckerInfo
