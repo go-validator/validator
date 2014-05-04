@@ -85,7 +85,7 @@ Note that there are no tests to prevent conflicting validator parameters. For
 instance, these fields will never be valid.
 
 	...
-	A int     `validate:"max=0,nonzero"`
+	A int     `validate:"max=0,min=1"`
 	B string  `validate:"len=10,regexp=^$"
 	...
 
@@ -98,7 +98,7 @@ First, one needs to create a validation function.
 	func notZZ(v interface{}, param string) error {
 		st := reflect.ValueOf(v)
 		if st.Kind() != reflect.String {
-			return errors.New("notZZ only validates strings")
+			return validate.ErrUnsupported
 		}
 		if st.String() == "ZZ" {
 			return errors.New("value cannot be ZZ")
@@ -127,7 +127,7 @@ To use parameters, it is very similar.
 	func notSomething(v interface{}, param string) error {
 		st := reflect.ValueOf(v)
 		if st.Kind() != reflect.String {
-			return errors.New("notSomething only validates strings")
+			return validate.ErrUnsupported
 		}
 		if st.String() == param {
 			return errors.New("value cannot be " + param)
@@ -155,7 +155,8 @@ And you can delete a validation function by setting it to nil.
 	validate.SetValidationFunc("notzz", nil)
 	validate.SetValidationFunc("nonzero", nil)
 
-Using a non-existing validation func in a field tag will panic.
+Using a non-existing validation func in a field tag will always return
+false and with error validate.ErrUnknownTag.
 
 Finally, package validator also provides a helper function that can be used
 to validate simple variables/values.

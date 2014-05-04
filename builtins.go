@@ -17,7 +17,6 @@
 package validator
 
 import (
-	"errors"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -46,7 +45,7 @@ func nonzero(v interface{}, param string) error {
 	case reflect.Invalid:
 		valid = false // always invalid
 	default:
-		panic("Unsupported type " + st.String())
+		return ErrUnsupported
 	}
 
 	if !valid {
@@ -63,17 +62,37 @@ func length(v interface{}, param string) error {
 	valid := true
 	switch st.Kind() {
 	case reflect.String:
-		valid = int64(len(st.String())) == asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		valid = int64(len(st.String())) == p
 	case reflect.Slice, reflect.Map, reflect.Array:
-		valid = int64(st.Len()) == asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		valid = int64(st.Len()) == p
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		valid = st.Int() == asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		valid = st.Int() == p
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		valid = st.Uint() == asUint(param)
+		p, err := asUint(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		valid = st.Uint() == p
 	case reflect.Float32, reflect.Float64:
-		valid = st.Float() == asFloat(param)
+		p, err := asFloat(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		valid = st.Float() == p
 	default:
-		panic("length is not a valid validation tag for type " + st.String())
+		return ErrUnsupported
 	}
 	if !valid {
 		return ErrLen
@@ -90,17 +109,37 @@ func min(v interface{}, param string) error {
 	invalid := false
 	switch st.Kind() {
 	case reflect.String:
-		invalid = int64(len(st.String())) < asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = int64(len(st.String())) < p
 	case reflect.Slice, reflect.Map, reflect.Array:
-		invalid = int64(st.Len()) < asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = int64(st.Len()) < p
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		invalid = st.Int() < asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Int() < p
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		invalid = st.Uint() < asUint(param)
+		p, err := asUint(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Uint() < p
 	case reflect.Float32, reflect.Float64:
-		invalid = st.Float() < asFloat(param)
+		p, err := asFloat(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Float() < p
 	default:
-		panic("min is not a valid validation tag for type " + st.String())
+		return ErrUnsupported
 	}
 	if invalid {
 		return ErrMin
@@ -117,17 +156,37 @@ func max(v interface{}, param string) error {
 	var invalid bool
 	switch st.Kind() {
 	case reflect.String:
-		invalid = int64(len(st.String())) > asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = int64(len(st.String())) > p
 	case reflect.Slice, reflect.Map, reflect.Array:
-		invalid = int64(st.Len()) > asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = int64(st.Len()) > p
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		invalid = st.Int() > asInt(param)
+		p, err := asInt(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Int() > p
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		invalid = st.Uint() > asUint(param)
+		p, err := asUint(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Uint() > p
 	case reflect.Float32, reflect.Float64:
-		invalid = st.Float() > asFloat(param)
+		p, err := asFloat(param)
+		if err != nil {
+			return ErrBadParameter
+		}
+		invalid = st.Float() > p
 	default:
-		panic("max is not a valid validation tag for type " + st.String())
+		return ErrUnsupported
 	}
 	if invalid {
 		return ErrMax
@@ -140,43 +199,46 @@ func max(v interface{}, param string) error {
 func regex(v interface{}, param string) error {
 	s, ok := v.(string)
 	if !ok {
-		panic("regexp requires a string")
+		return ErrUnsupported
 	}
 
-	re := regexp.MustCompile(param)
+	re, err := regexp.Compile(param)
+	if err != nil {
+		return ErrBadParameter
+	}
 
 	if !re.MatchString(s) {
-		return errors.New("regexp does not match")
+		return ErrRegexp
 	}
 	return nil
 }
 
 // asInt retuns the parameter as a int64
 // or panics if it can't convert
-func asInt(param string) int64 {
+func asInt(param string) (int64, error) {
 	i, err := strconv.ParseInt(param, 0, 64)
 	if err != nil {
-		panic("Invalid param " + param + ", should be an integer")
+		return 0, ErrBadParameter
 	}
-	return i
+	return i, nil
 }
 
 // asUint retuns the parameter as a uint64
 // or panics if it can't convert
-func asUint(param string) uint64 {
+func asUint(param string) (uint64, error) {
 	i, err := strconv.ParseUint(param, 0, 64)
 	if err != nil {
-		panic("Invalid param " + param + ", should be an unsigned integer")
+		return 0, ErrBadParameter
 	}
-	return i
+	return i, nil
 }
 
 // asFloat retuns the parameter as a float64
 // or panics if it can't convert
-func asFloat(param string) float64 {
+func asFloat(param string) (float64, error) {
 	i, err := strconv.ParseFloat(param, 64)
 	if err != nil {
-		panic("Invalid param " + param + ", should be a float")
+		return 0.0, ErrBadParameter
 	}
-	return i
+	return i, nil
 }
