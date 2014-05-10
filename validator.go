@@ -179,7 +179,12 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 		if tag == "" && f.Kind() != reflect.Struct {
 			continue
 		}
-		fname := st.Field(i).Name
+		var fieldInfo = st.Field(i)
+		if len(fieldInfo.PkgPath) != 0 { // unexported field
+			continue
+		}
+		fname := fieldInfo.Name
+
 		var errs []error
 		switch f.Kind() {
 		case reflect.Struct:
