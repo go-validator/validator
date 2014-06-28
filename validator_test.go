@@ -17,8 +17,8 @@
 package validator_test
 
 import (
-	"testing"
 	. "gopkg.in/check.v1"
+	"testing"
 
 	"gopkg.in/validator.v1"
 )
