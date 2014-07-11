@@ -1,4 +1,4 @@
-// Package validator implements value validations
+// Modified by Aaron L
 //
 // Copyright 2014 Roberto Teixeira <robteix@robteix.com>
 //
