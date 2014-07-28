@@ -96,7 +96,7 @@ Then it is possible to use the notzz validation tag. This will print
 "Field A error: value cannot be ZZ"
 
 	type T struct {
-		A string  `validator:"nonzero,notzz"`
+		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
 	if valid, errs := validator.Validate(t); !valid {
