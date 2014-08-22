@@ -18,6 +18,7 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -51,6 +52,21 @@ var (
 	// (normally a nil pointer)
 	ErrInvalid = errors.New("invalid value")
 )
+
+// ErrorMap is a map which contains all errors from validating a struct.
+type ErrorMap map[string][]error
+
+// ErrorMap implements the Error interface so we can check error against nil.
+// The returned error is if existent the first error which was added to the map.
+func (err ErrorMap) Error() string {
+	for k, errs := range err {
+		if len(errs) > 0 {
+			return fmt.Sprintf("%s: %s", k, errs[0].Error())
+		}
+	}
+
+	return ""
+}
 
 // ValidationFunc is a function that receives the value of a
 // field and a parameter used for the respective validation tag.
@@ -142,27 +158,25 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func Validate(v interface{}) (bool, map[string][]error) {
+func Validate(v interface{}) error {
 	return defaultValidator.Validate(v)
 }
 
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
+func (mv *Validator) Validate(v interface{}) error {
 	sv := reflect.ValueOf(v)
 	st := reflect.TypeOf(v)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
 	if sv.Kind() != reflect.Struct {
-		return false, map[string][]error{
-			"": []error{ErrUnsupported},
-		}
+		return ErrUnsupported
 	}
 
 	nfields := sv.NumField()
-	m := make(map[string][]error)
+	m := make(ErrorMap)
 	for i := 0; i < nfields; i++ {
 		f := sv.Field(i)
 		// deal with pointers
@@ -183,8 +197,8 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 		var errs []error
 		switch f.Kind() {
 		case reflect.Struct:
-			_, e := mv.Validate(f.Interface())
-			if len(e) > 0 {
+			e := mv.Validate(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 				for j, k := range e {
 					m[fname+"."+j] = k
 				}
@@ -198,7 +212,10 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 			m[st.Field(i).Name] = errs
 		}
 	}
-	return len(m) == 0, m
+	if len(m) > 0 {
+		return m
+	}
+	return nil
 }
 
 // Valid validates a value based on the provided

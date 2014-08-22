@@ -50,10 +50,11 @@ func ExampleValidate() {
 	ve.Address.City = "Some City" // valid
 	ve.Address.Street = ""        // invalid
 
-	valid, errs := validator.Validate(ve)
-	if valid {
+	err := validator.Validate(ve)
+	if err == nil {
 		fmt.Println("Values are valid.")
 	} else {
+		errs := err.(validator.ErrorMap)
 		// See if Address was empty
 		if errs["Address.Street"][0] == validator.ErrZeroValue {
 			fmt.Println("Street cannot be empty.")
@@ -102,15 +103,16 @@ func ExampleSetTag() {
 	t := T{5}
 	v := validator.NewValidator()
 	v.SetTag("foo")
-	valid, errs := v.Validate(t)
-	fmt.Printf("foo --> valid: %v, errs: %v\n", valid, errs)
+	err := v.Validate(t)
+	fmt.Printf("foo --> valid: %v, errs: %v\n", err == nil, err)
 	v.SetTag("bar")
-	valid, errs = v.Validate(t)
-	fmt.Printf("bar --> valid: %v, errs: %v\n", valid, errs)
+	err = v.Validate(t)
+	errs := err.(validator.ErrorMap)
+	fmt.Printf("bar --> valid: %v, errs: %v\n", err == nil, errs)
 
 	// Output:
-	// foo --> valid: true, errs: map[]
-	// bar --> valid: false, errs: map[A:[less than min]]
+	// foo --> valid: true, errs: <nil>
+	// bar --> valid: false, errs: A: less than min
 }
 
 // This example shows you how to change the tag name
@@ -119,12 +121,12 @@ func ExampleWithTag() {
 		A int `foo:"nonzero" bar:"min=10"`
 	}
 	t := T{5}
-	valid, errs := validator.WithTag("foo").Validate(t)
-	fmt.Printf("foo --> valid: %v, errs: %v\n", valid, errs)
-	valid, errs = validator.WithTag("bar").Validate(t)
-	fmt.Printf("bar --> valid: %v, errs: %v\n", valid, errs)
+	err := validator.WithTag("foo").Validate(t)
+	fmt.Printf("foo --> valid: %v, errs: %v\n", err == nil, err)
+	err = validator.WithTag("bar").Validate(t)
+	fmt.Printf("bar --> valid: %v, errs: %v\n", err == nil, err)
 
 	// Output:
-	// foo --> valid: true, errs: map[]
-	// bar --> valid: false, errs: map[A:[less than min]]
+	// foo --> valid: true, errs: <nil>
+	// bar --> valid: false, errs: A: less than min
 }

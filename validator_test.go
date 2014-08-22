@@ -17,8 +17,9 @@
 package validator_test
 
 import (
-	. "gopkg.in/check.v1"
 	"testing"
+
+	. "gopkg.in/check.v1"
 
 	"gopkg.in/validator.v1"
 )
@@ -57,8 +58,11 @@ func (ms *MySuite) TestValidate(c *C) {
 	t.Sub.C = 0.0
 	t.D = &Simple{10}
 
-	valid, errs := validator.Validate(t)
-	c.Assert(valid, Equals, false, Commentf("errs: %v", errs))
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
 	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
 	c.Assert(errs["B"], HasError, validator.ErrLen)
 	c.Assert(errs["B"], HasError, validator.ErrMin)
@@ -183,8 +187,10 @@ func (ms *MySuite) TestUnknownTag(c *C) {
 		A int `validate:"foo"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
-	c.Assert(valid, Equals, false)
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 1)
 	c.Assert(errs["A"], HasError, validator.ErrUnknownTag)
 }
@@ -195,8 +201,10 @@ func (ms *MySuite) TestUnsupported(c *C) {
 		B float64 `validate:"regexp=.*"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
-	c.Assert(valid, Equals, false)
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 2)
 	c.Assert(errs["A"], HasError, validator.ErrUnsupported)
 	c.Assert(errs["B"], HasError, validator.ErrUnsupported)
@@ -209,8 +217,10 @@ func (ms *MySuite) TestBadParameter(c *C) {
 		C string `validate:"max=foo"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
-	c.Assert(valid, Equals, false)
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 3)
 	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
