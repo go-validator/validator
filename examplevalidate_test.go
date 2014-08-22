@@ -70,27 +70,27 @@ func ExampleValidate() {
 	// Output:
 	// Street cannot be empty.
 	// Invalid due to fields:
-	//	 - Age ([less than min])
-	//	 - Email ([regular expression mismatch])
-	//	 - Address.Street ([zero value])
+	//	 - Age (less than min)
+	//	 - Email (regular expression mismatch)
+	//	 - Address.Street (zero value)
 }
 
 // This example shows how to use the Valid helper
 // function to validator any number of values
 func ExampleValid() {
-	valid, errs := validator.Valid(42, "min=10,max=100,nonzero")
-	fmt.Printf("42: valid=%v, errs=%v\n", valid, errs)
+	err := validator.Valid(42, "min=10,max=100,nonzero")
+	fmt.Printf("42: valid=%v, errs=%v\n", err == nil, err)
 
 	var ptr *int
-	if valid, _ := validator.Valid(ptr, "nonzero"); !valid {
+	if err := validator.Valid(ptr, "nonzero"); err != nil {
 		fmt.Println("ptr: Invalid nil pointer.")
 	}
 
-	valid, _ = validator.Valid("ABBA", "regexp=[ABC]*")
-	fmt.Printf("ABBA: valid=%v\n", valid)
+	err = validator.Valid("ABBA", "regexp=[ABC]*")
+	fmt.Printf("ABBA: valid=%v\n", err == nil)
 
 	// Output:
-	// 42: valid=true, errs=[]
+	// 42: valid=true, errs=<nil>
 	// ptr: Invalid nil pointer.
 	// ABBA: valid=true
 }
