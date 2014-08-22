@@ -194,6 +194,9 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 
 			}
 		}
+		if tag == "-" {
+			continue
+		}
 		if tag == "" && f.Kind() != reflect.Struct {
 			continue
 		}
