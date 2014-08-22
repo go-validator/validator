@@ -181,14 +181,18 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
 	type test2 struct {
-		B int `validate:min=1`
+		B int `validate:"min=1"`
 	}
 	type test1 struct {
 		A test2 `validate:"-"`
 	}
 
 	t := test1{}
-	valid, errs := validator.Validate(t)
+	valid, err := validator.Validate(t)
+	c.Assert(valid, Equals, true)
+	c.Assert(err, HasLen, 0)
+
+	valid, errs := validator.Valid(test2{}, "-")
 	c.Assert(valid, Equals, true)
 	c.Assert(errs, HasLen, 0)
 }
