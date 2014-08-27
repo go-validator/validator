@@ -8,18 +8,18 @@ Installation
 
 Just use go get.
 
-	go get gopkg.in/validator.v1
+	go get gopkg.in/validator.v2
 
 And then just import the package into your own code.
 
 	import (
-		"gopkg.in/validator.v1"
+		"gopkg.in/validator.v2"
 	)
 
 Usage
 =====
 
-Please see http://godoc.org/gopkg.in/validator.v1 for detailed usage docs.
+Please see http://godoc.org/gopkg.in/validator.v2 for detailed usage docs.
 A simple example would be.
 
 	type NewUserRequest struct {
@@ -132,7 +132,7 @@ Pull requests policy
 tl;dr. Contributions are welcome.
 
 The repository is organized in version branches. Pull requests to, say, the
-`v1` branch that break API compatibility will not be accepted. It is okay to
+`v2` branch that break API compatibility will not be accepted. It is okay to
 break the API in master, *not in the branches*.
 
 As for validation functions, the preference is to keep the main code simple
