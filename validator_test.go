@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v1"
+	"gopkg.in/validator.v2"
 )
 
 func Test(t *testing.T) {
@@ -214,13 +214,11 @@ func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
 	}
 
 	t := test1{}
-	valid, err := validator.Validate(t)
-	c.Assert(valid, Equals, true)
-	c.Assert(err, HasLen, 0)
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
 
-	valid, errs := validator.Valid(test2{}, "-")
-	c.Assert(valid, Equals, true)
-	c.Assert(errs, HasLen, 0)
+	errs := validator.Valid(test2{}, "-")
+	c.Assert(errs, IsNil)
 }
 
 func (ms *MySuite) TestUnknownTag(c *C) {

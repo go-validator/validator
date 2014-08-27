@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"gopkg.in/validator.v1"
+	"gopkg.in/validator.v2"
 )
 
 // This example demonstrates a custom function to process template text.
@@ -83,9 +83,9 @@ func ExampleValidate() {
 	// Output:
 	// Street cannot be empty.
 	// Invalid due to fields:
-	//	 - Age (less than min)
-	//	 - Email (regular expression mismatch)
 	//	 - Address.Street (zero value)
+	// 	 - Age (less than min)
+	// 	 - Email (regular expression mismatch)
 }
 
 // This example shows how to use the Valid helper

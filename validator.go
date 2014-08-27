@@ -267,6 +267,9 @@ func Valid(val interface{}, tags string) error {
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
 func (mv *Validator) Valid(val interface{}, tags string) error {
+	if tags == "-" {
+		return nil
+	}
 	v := reflect.ValueOf(val)
 	if v.Kind() == reflect.Ptr && !v.IsNil() {
 		return mv.Valid(v.Elem().Interface(), tags)
