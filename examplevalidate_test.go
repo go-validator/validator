@@ -18,6 +18,7 @@ package validator_test
 
 import (
 	"fmt"
+	"sort"
 
 	"gopkg.in/validator.v1"
 )
@@ -61,17 +62,29 @@ func ExampleValidate() {
 
 		// Iterate through the list of fields and respective errors
 		fmt.Println("Invalid due to fields:")
+
+		// Here we have to sort the arrays to ensure map ordering does not
+		// fail our example, typically it's ok to just range through the err
+		// list when order is not important.
+		var errOuts []string
 		for f, e := range errs {
-			fmt.Printf("\t - %s (%v)\n", f, e)
+			errOuts = append(errOuts, fmt.Sprintf("\t - %s (%v)\n", f, e))
+		}
+
+		// Again this part is extraneous and you should not need this in real
+		// code.
+		sort.Strings(errOuts)
+		for _, str := range errOuts {
+			fmt.Print(str)
 		}
 	}
 
 	// Output:
 	// Street cannot be empty.
 	// Invalid due to fields:
+	//	 - Address.Street ([zero value])
 	//	 - Age ([less than min])
 	//	 - Email ([regular expression mismatch])
-	//	 - Address.Street ([zero value])
 }
 
 // This example shows how to use the Valid helper

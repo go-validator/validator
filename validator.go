@@ -22,34 +22,52 @@ import (
 	"strings"
 )
 
+// TextErr is an error that also implements the TextMarshaller interface for
+// serializing out to various plain text encodings. Packages creating their
+// own custom errors should use TextErr if they're intending to use serializing
+// formats like json, msgpack etc.
+type TextErr struct {
+	Err error
+}
+
+// Error implements the error interface.
+func (t TextErr) Error() string {
+	return t.Err.Error()
+}
+
+// MarshalText implements the TextMarshaller
+func (t TextErr) MarshalText() ([]byte, error) {
+	return []byte(t.Err.Error()), nil
+}
+
 var (
 	// ErrZeroValue is the error returned when variable has zero valud
 	// and nonzero was specified
-	ErrZeroValue = errors.New("zero value")
+	ErrZeroValue = TextErr{errors.New("zero value")}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
-	ErrMin = errors.New("less than min")
+	ErrMin = TextErr{errors.New("less than min")}
 	// ErrMax is the error returned when variable is more than
 	// maximum specified
-	ErrMax = errors.New("greater than max")
+	ErrMax = TextErr{errors.New("greater than max")}
 	// ErrLen is the error returned when length is not equal to
 	// param specified
-	ErrLen = errors.New("invalid length")
+	ErrLen = TextErr{errors.New("invalid length")}
 	// ErrRegexp is the error returned when the value does not
 	// match the provided regular expression parameter
-	ErrRegexp = errors.New("regular expression mismatch")
+	ErrRegexp = TextErr{errors.New("regular expression mismatch")}
 	// ErrUnsupported is the error error returned when a validation rule
 	// is used with an unsupported variable type
-	ErrUnsupported = errors.New("unsupported type")
+	ErrUnsupported = TextErr{errors.New("unsupported type")}
 	// ErrBadParameter is the error returned when an invalid parameter
 	// is provided to a validation rule (e.g. a string where an int was
 	// expected (max=foo,len=bar) or missing a parameter when one is required (len=))
-	ErrBadParameter = errors.New("bad parameter")
+	ErrBadParameter = TextErr{errors.New("bad parameter")}
 	// ErrUnknownTag is the error returned when an unknown tag is found
-	ErrUnknownTag = errors.New("unknown tag")
+	ErrUnknownTag = TextErr{errors.New("unknown tag")}
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
-	ErrInvalid = errors.New("invalid value")
+	ErrInvalid = TextErr{errors.New("invalid value")}
 )
 
 // ValidationFunc is a function that receives the value of a
@@ -176,10 +194,18 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 
 			}
 		}
+		if tag == "-" {
+			continue
+		}
 		if tag == "" && f.Kind() != reflect.Struct {
 			continue
 		}
-		fname := st.Field(i).Name
+		var fieldInfo = st.Field(i)
+		if len(fieldInfo.PkgPath) != 0 { // unexported field
+			continue
+		}
+		fname := fieldInfo.Name
+
 		var errs []error
 		switch f.Kind() {
 		case reflect.Struct:
