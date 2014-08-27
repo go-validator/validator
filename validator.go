@@ -18,6 +18,7 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -69,6 +70,33 @@ var (
 	// (normally a nil pointer)
 	ErrInvalid = TextErr{errors.New("invalid value")}
 )
+
+// ErrorMap is a map which contains all errors from validating a struct.
+type ErrorMap map[string]ErrorArray
+
+// ErrorMap implements the Error interface so we can check error against nil.
+// The returned error is if existent the first error which was added to the map.
+func (err ErrorMap) Error() string {
+	for k, errs := range err {
+		if len(errs) > 0 {
+			return fmt.Sprintf("%s: %s", k, errs.Error())
+		}
+	}
+
+	return ""
+}
+
+// ErrorArray is a slice of errors returned by the Validate function.
+type ErrorArray []error
+
+// ErrorArray implements the Error interface and returns the first error as
+// string if existent.
+func (err ErrorArray) Error() string {
+	if len(err) > 0 {
+		return err[0].Error()
+	}
+	return ""
+}
 
 // ValidationFunc is a function that receives the value of a
 // field and a parameter used for the respective validation tag.
@@ -160,27 +188,25 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func Validate(v interface{}) (bool, map[string][]error) {
+func Validate(v interface{}) error {
 	return defaultValidator.Validate(v)
 }
 
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
+func (mv *Validator) Validate(v interface{}) error {
 	sv := reflect.ValueOf(v)
 	st := reflect.TypeOf(v)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
 	if sv.Kind() != reflect.Struct {
-		return false, map[string][]error{
-			"": []error{ErrUnsupported},
-		}
+		return ErrUnsupported
 	}
 
 	nfields := sv.NumField()
-	m := make(map[string][]error)
+	m := make(ErrorMap)
 	for i := 0; i < nfields; i++ {
 		f := sv.Field(i)
 		// deal with pointers
@@ -200,72 +226,80 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 		if tag == "" && f.Kind() != reflect.Struct {
 			continue
 		}
-		var fieldInfo = st.Field(i)
-		if len(fieldInfo.PkgPath) != 0 { // unexported field
-			continue
-		}
-		fname := fieldInfo.Name
-
-		var errs []error
+		fname := st.Field(i).Name
+		var errs ErrorArray
 		switch f.Kind() {
 		case reflect.Struct:
-			_, e := mv.Validate(f.Interface())
-			if len(e) > 0 {
+			e := mv.Validate(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 				for j, k := range e {
 					m[fname+"."+j] = k
 				}
 			}
 
 		default:
-			_, errs = mv.Valid(f.Interface(), tag)
+			err := mv.Valid(f.Interface(), tag)
+			if errors, ok := err.(ErrorArray); ok {
+				errs = errors
+			} else {
+				if err != nil {
+					errs = ErrorArray{err}
+				}
+			}
 		}
 
 		if len(errs) > 0 {
 			m[st.Field(i).Name] = errs
 		}
 	}
-	return len(m) == 0, m
+	if len(m) > 0 {
+		return m
+	}
+	return nil
 }
 
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
-func Valid(val interface{}, tags string) (bool, []error) {
+func Valid(val interface{}, tags string) error {
 	return defaultValidator.Valid(val, tags)
 }
 
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
-func (mv *Validator) Valid(val interface{}, tags string) (bool, []error) {
+func (mv *Validator) Valid(val interface{}, tags string) error {
 	v := reflect.ValueOf(val)
 	if v.Kind() == reflect.Ptr && !v.IsNil() {
 		return mv.Valid(v.Elem().Interface(), tags)
 	}
-	var errs []error
+	var err error
 	switch v.Kind() {
 	case reflect.Struct:
-		return false, []error{ErrUnsupported}
+		return ErrUnsupported
 	case reflect.Invalid:
-		errs = mv.validateVar(nil, tags)
+		err = mv.validateVar(nil, tags)
 	default:
-		errs = mv.validateVar(val, tags)
+		err = mv.validateVar(val, tags)
 	}
-	return len(errs) < 1, errs
+	return err
 }
 
 // validateVar validates one single variable
-func (mv *Validator) validateVar(v interface{}, tag string) []error {
+func (mv *Validator) validateVar(v interface{}, tag string) error {
 	tags, err := mv.parseTags(tag)
 	if err != nil {
 		// unknown tag found, give up.
-		return []error{err}
+		return err
 	}
-	errs := make([]error, 0, len(tags))
+	errs := make(ErrorArray, 0, len(tags))
 	for _, t := range tags {
 		if err := t.Fn(v, t.Param); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	return errs
+	if len(errs) > 0 {
+		return errs
+	}
+	return nil
 }
 
 // tag represents one of the tag items
