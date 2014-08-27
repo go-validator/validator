@@ -23,10 +23,10 @@ Please see http://godoc.org/gopkg.in/validator.v1 for detailed usage docs.
 A simple example would be.
 
 	type NewUserRequest struct {
-		Username string `validator:"min=3,max=40,regexp=^[a-zA-Z]$"`
-		Name string     `validator:"nonzero"`
-		Age int         `validator:"min=21"`
-		Password string `validator:"min=8"`
+		Username string `validate:"min=3,max=40,regexp=^[a-zA-Z]$"`
+		Name string     `validate:"nonzero"`
+		Age int         `validate:"min=21"`
+		Password string `validate:"min=8"`
 	}
 
 	nur := NewUserRequest{Username: "something", Age: 20}
@@ -96,7 +96,7 @@ Then it is possible to use the notzz validation tag. This will print
 "Field A error: value cannot be ZZ"
 
 	type T struct {
-		A string  `validator:"nonzero,notzz"`
+		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
 	if valid, errs := validator.Validate(t); !valid {
