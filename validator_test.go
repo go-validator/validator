@@ -19,8 +19,8 @@ package validator_test
 import (
 	"testing"
 
+	"github.com/wcl48/go-validator"
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v2"
 )
 
 func Test(t *testing.T) {
@@ -264,6 +264,26 @@ func (ms *MySuite) TestBadParameter(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+}
+
+func (ms *MySuite) TestExtendedTypes(c *C) {
+	type MyString string
+	type MyInt int
+	type MyFloat64 float64
+	type test struct {
+		A MyString  `validate:"min=1,max=3,regexp=^[a-z]+$"`
+		B MyInt     `validate:"min=0,max=100"`
+		C MyFloat64 `validate:"min=0,max=100"`
+	}
+
+	t1 := test{
+		A: MyString("abc"),
+		B: MyInt(100),
+		C: MyFloat64(99.999),
+	}
+
+	err := validator.Validate(t1)
+	c.Assert(err, IsNil)
 }
 
 type hasErrorChecker struct {

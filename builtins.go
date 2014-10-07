@@ -197,10 +197,11 @@ func max(v interface{}, param string) error {
 // regex is the builtin validation function that checks
 // whether the string variable matches a regular expression
 func regex(v interface{}, param string) error {
-	s, ok := v.(string)
-	if !ok {
+	val := reflect.ValueOf(v)
+	if val.Kind() != reflect.String {
 		return ErrUnsupported
 	}
+	s := val.String()
 
 	re, err := regexp.Compile(param)
 	if err != nil {
