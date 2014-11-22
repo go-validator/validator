@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 // TextErr is an error that also implements the TextMarshaller interface for
@@ -230,6 +231,9 @@ func (mv *Validator) Validate(v interface{}) error {
 		var errs ErrorArray
 		switch f.Kind() {
 		case reflect.Struct:
+			if !unicode.IsUpper(rune(fname[0])) {
+				continue
+			}
 			e := mv.Validate(f.Interface())
 			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 				for j, k := range e {
