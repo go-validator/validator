@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v2"
+
+	"github.com/wcl48/go-validator"
 )
 
 func Test(t *testing.T) {
@@ -264,6 +265,22 @@ func (ms *MySuite) TestBadParameter(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+}
+
+func (ms *MySuite) TestTagEscape(c *C) {
+	type test struct {
+		A string `validate:"min=0,regexp=^a{3\\,10}"`
+	}
+	t := test{"aaaa"}
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
+
+	t2 := test{"aa"}
+	err = validator.Validate(t2)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], HasError, validator.ErrRegexp)
 }
 
 type hasErrorChecker struct {
