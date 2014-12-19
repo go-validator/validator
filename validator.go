@@ -202,7 +202,7 @@ func (mv *Validator) Validate(v interface{}) error {
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
-	if sv.Kind() != reflect.Struct {
+	if sv.Kind() != reflect.Struct && sv.Kind() != reflect.Interface {
 		return ErrUnsupported
 	}
 
@@ -217,20 +217,20 @@ func (mv *Validator) Validate(v interface{}) error {
 		tag := st.Field(i).Tag.Get(mv.tagName)
 		if f.Kind() == reflect.Ptr {
 			ff := f.Elem()
-			if ff.Kind() == reflect.Struct {
+			if ff.Kind() == reflect.Struct || ff.Kind() == reflect.Interface {
 
 			}
 		}
 		if tag == "-" {
 			continue
 		}
-		if tag == "" && f.Kind() != reflect.Struct {
+		if tag == "" && f.Kind() != reflect.Struct && f.Kind() != reflect.Interface {
 			continue
 		}
 		fname := st.Field(i).Name
 		var errs ErrorArray
 		switch f.Kind() {
-		case reflect.Struct:
+		case reflect.Struct, reflect.Interface:
 			if !unicode.IsUpper(rune(fname[0])) {
 				continue
 			}
