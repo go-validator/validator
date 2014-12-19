@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"gopkg.in/validator.v2"
+	"github.com/codeship/validator"
 )
 
 // This example demonstrates a custom function to process template text.
