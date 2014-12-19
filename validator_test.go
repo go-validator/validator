@@ -36,6 +36,18 @@ type Simple struct {
 	A int `validate:"min=10"`
 }
 
+type I interface {
+	Foo() string
+}
+
+type Impl struct {
+	F string `validate:"len=3"`
+}
+
+func (this *Impl) Foo() string {
+	return this.F
+}
+
 type TestStruct struct {
 	A   int    `validate:"nonzero"`
 	B   string `validate:"len=8,min=6,max=4"`
@@ -46,6 +58,7 @@ type TestStruct struct {
 		D *string `validate:"nonzero"`
 	}
 	D *Simple `validate:"nonzero"`
+	E I       `validate:nonzero`
 }
 
 func (ms *MySuite) TestValidate(c *C) {
@@ -57,6 +70,7 @@ func (ms *MySuite) TestValidate(c *C) {
 	t.Sub.B = ""
 	t.Sub.C = 0.0
 	t.D = &Simple{10}
+	t.E = &Impl{"hello"}
 
 	err := validator.Validate(t)
 	c.Assert(err, NotNil)
@@ -71,6 +85,7 @@ func (ms *MySuite) TestValidate(c *C) {
 	c.Assert(errs["Sub.B"], HasLen, 0)
 	c.Assert(errs["Sub.C"], HasLen, 2)
 	c.Assert(errs["Sub.D"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["E.F"], HasError, validator.ErrLen)
 }
 
 func (ms *MySuite) TestValidSlice(c *C) {

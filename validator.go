@@ -202,7 +202,7 @@ func (mv *Validator) Validate(v interface{}) error {
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
-	if sv.Kind() != reflect.Struct {
+	if sv.Kind() != reflect.Struct && sv.Kind() != reflect.Interface {
 		return ErrUnsupported
 	}
 
@@ -231,7 +231,7 @@ func (mv *Validator) Validate(v interface{}) error {
 				}
 			}
 		}
-		if f.Kind() == reflect.Struct {
+		if f.Kind() == reflect.Struct || f.Kind() == reflect.Interface {
 			if !unicode.IsUpper(rune(fname[0])) {
 				continue
 			}
