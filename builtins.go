@@ -213,6 +213,12 @@ func regex(v interface{}, param string) error {
 	return nil
 }
 
+// nop is a validate func that explicitly
+// returns no error
+func nop(v interface{}, param string) error {
+	return nil
+}
+
 // asInt retuns the parameter as a int64
 // or panics if it can't convert
 func asInt(param string) (int64, error) {
