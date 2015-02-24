@@ -266,6 +266,105 @@ func (ms *MySuite) TestBadParameter(c *C) {
 	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
 }
 
+func (ms *MySuite) TestValidateSlice(c *C) {
+	type test struct {
+		A string `validate:"nonzero"`
+		B int    `validate:"min=1"`
+	}
+	t := []test{}
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
+
+	t = []test{
+		test{B: 1},
+		test{A: "x"},
+		test{},
+	}
+	err = validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 4)
+	c.Assert(errs["[0].A"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["[1].B"], HasError, validator.ErrMin)
+	c.Assert(errs["[2].A"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["[2].B"], HasError, validator.ErrMin)
+}
+
+func (ms *MySuite) TestValidateArray(c *C) {
+	type test struct {
+		A string `validate:"nonzero"`
+	}
+	t := [1]test{
+		test{"a"},
+	}
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
+
+	t[0].A = ""
+	err = validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["[0].A"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestValidateSliceInStruct(c *C) {
+	type sa struct {
+		A string `validate:"nonzero"`
+	}
+	type test struct {
+		X []sa ``
+	}
+	t := test{}
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
+	t = test{
+		X: []sa{
+			sa{},
+			sa{"x"},
+			sa{},
+		},
+	}
+	err = validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["X[0].A"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["X[2].A"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestValidateSliceInStructWithTag(c *C) {
+	type sa struct {
+		A string `validate:"nonzero"`
+	}
+	type test struct {
+		X []int
+		Y []sa `validate:"nonzero"`
+		Z []string
+	}
+	t := test{}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["Y"], HasError, validator.ErrZeroValue)
+
+	t.X = []int{2, 3, 4}
+	t.Y = []sa{
+		sa{},
+	}
+	err = validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["Y[0].A"], HasError, validator.ErrZeroValue)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
