@@ -198,68 +198,16 @@ func Validate(v interface{}) error {
 // by the field name.
 func (mv *Validator) Validate(v interface{}) error {
 	sv := reflect.ValueOf(v)
-	st := reflect.TypeOf(v)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
-	if sv.Kind() != reflect.Struct {
-		return ErrUnsupported
+	switch sv.Kind() {
+	case reflect.Struct:
+		return mv.validateStruct(v)
+	case reflect.Slice, reflect.Array:
+		return mv.validateSlice(v)
 	}
-
-	nfields := sv.NumField()
-	m := make(ErrorMap)
-	for i := 0; i < nfields; i++ {
-		f := sv.Field(i)
-		// deal with pointers
-		for f.Kind() == reflect.Ptr && !f.IsNil() {
-			f = f.Elem()
-		}
-		tag := st.Field(i).Tag.Get(mv.tagName)
-		if f.Kind() == reflect.Ptr {
-			ff := f.Elem()
-			if ff.Kind() == reflect.Struct {
-
-			}
-		}
-		if tag == "-" {
-			continue
-		}
-		if tag == "" && f.Kind() != reflect.Struct {
-			continue
-		}
-		fname := st.Field(i).Name
-		var errs ErrorArray
-		switch f.Kind() {
-		case reflect.Struct:
-			if !unicode.IsUpper(rune(fname[0])) {
-				continue
-			}
-			e := mv.Validate(f.Interface())
-			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-				for j, k := range e {
-					m[fname+"."+j] = k
-				}
-			}
-
-		default:
-			err := mv.Valid(f.Interface(), tag)
-			if errors, ok := err.(ErrorArray); ok {
-				errs = errors
-			} else {
-				if err != nil {
-					errs = ErrorArray{err}
-				}
-			}
-		}
-
-		if len(errs) > 0 {
-			m[st.Field(i).Name] = errs
-		}
-	}
-	if len(m) > 0 {
-		return m
-	}
-	return nil
+	return ErrUnsupported
 }
 
 // Valid validates a value based on the provided
@@ -288,6 +236,99 @@ func (mv *Validator) Valid(val interface{}, tags string) error {
 		err = mv.validateVar(val, tags)
 	}
 	return err
+}
+
+// validateStruct validates a struct.
+func (mv *Validator) validateStruct(v interface{}) error {
+	sv := reflect.ValueOf(v)
+	st := reflect.TypeOf(v)
+
+	nfields := sv.NumField()
+	m := make(ErrorMap)
+	for i := 0; i < nfields; i++ {
+		f := sv.Field(i)
+		// deal with pointers
+		for f.Kind() == reflect.Ptr && !f.IsNil() {
+			f = f.Elem()
+		}
+		tag := st.Field(i).Tag.Get(mv.tagName)
+		if tag == "-" {
+			continue
+		}
+		fkind := f.Kind()
+		if tag == "" && fkind != reflect.Struct && fkind != reflect.Array && fkind != reflect.Slice {
+			continue
+		}
+		fname := st.Field(i).Name
+
+		// Validate this field if tag specified
+		if tag != "" {
+			var errs ErrorArray
+
+			err := mv.Valid(f.Interface(), tag)
+			if errors, ok := err.(ErrorArray); ok {
+				errs = errors
+			} else {
+				if err != nil {
+					errs = ErrorArray{err}
+				}
+			}
+
+			if len(errs) > 0 {
+				m[fname] = errs
+			}
+		}
+		// Also validate children if this field is a struct, slice or array
+		if fkind == reflect.Struct || fkind == reflect.Slice || fkind == reflect.Array {
+			// Ignore unexported fields
+			if unicode.IsUpper(rune(fname[0])) {
+				e := mv.Validate(f.Interface())
+				if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+					if fkind == reflect.Struct {
+						fname += "."
+					}
+					for j, k := range e {
+						m[fname+j] = k
+					}
+				}
+			}
+		}
+	}
+	if len(m) > 0 {
+		return m
+	}
+	return nil
+}
+
+// validateSlice validates an array or slice of struct.
+func (mv *Validator) validateSlice(v interface{}) error {
+	sv := reflect.ValueOf(v)
+	length := sv.Len()
+	if length == 0 {
+		return nil
+	}
+	m := make(ErrorMap)
+	for i := 0; i < length; i++ {
+		f := sv.Index(i)
+		// deal with pointers
+		for f.Kind() == reflect.Ptr && !f.IsNil() {
+			f = f.Elem()
+		}
+		if f.Kind() != reflect.Struct {
+			continue
+		}
+		e := mv.validateStruct(f.Interface())
+		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+			fname := fmt.Sprintf("[%d].", i)
+			for j, k := range e {
+				m[fname+j] = k
+			}
+		}
+	}
+	if len(m) > 0 {
+		return m
+	}
+	return nil
 }
 
 // validateVar validates one single variable
