@@ -365,6 +365,36 @@ func (ms *MySuite) TestValidateSliceInStructWithTag(c *C) {
 	c.Assert(errs["Y[0].A"], HasError, validator.ErrZeroValue)
 }
 
+func (ms *MySuite) TestValidateStructInInterface(c *C) {
+	type sa struct {
+		A string `validate:"nonzero"`
+	}
+	type test struct {
+		X interface{}
+		Y interface{}
+		Z []interface{}
+	}
+	t := test{}
+	var ival int = 1
+	var sval string = "val"
+	t.X = &sa{}
+	t.Y = &ival
+	t.Z = []interface{}{&sval, sa{}, sa{"test"}}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["X.A"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["Z[1].A"], HasError, validator.ErrZeroValue)
+
+	t.X = &sa{"sa"}
+	t.Y = ival
+	t.Z = []interface{}{sval}
+	err = validator.Validate(t)
+	c.Assert(err, IsNil)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }

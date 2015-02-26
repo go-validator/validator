@@ -256,7 +256,7 @@ func (mv *Validator) validateStruct(v interface{}) error {
 			continue
 		}
 		fkind := f.Kind()
-		if tag == "" && fkind != reflect.Struct && fkind != reflect.Array && fkind != reflect.Slice {
+		if tag == "" && !isSupported(fkind) {
 			continue
 		}
 		fname := st.Field(i).Name
@@ -278,18 +278,32 @@ func (mv *Validator) validateStruct(v interface{}) error {
 				m[fname] = errs
 			}
 		}
+		// Ignore unexported fields
+		if unicode.IsLower(rune(fname[0])) {
+			continue
+		}
 		// Also validate children if this field is a struct, slice or array
-		if fkind == reflect.Struct || fkind == reflect.Slice || fkind == reflect.Array {
-			// Ignore unexported fields
-			if unicode.IsUpper(rune(fname[0])) {
-				e := mv.Validate(f.Interface())
-				if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-					if fkind == reflect.Struct {
-						fname += "."
-					}
-					for j, k := range e {
-						m[fname+j] = k
-					}
+		switch fkind {
+		case reflect.Struct:
+			e := mv.validateStruct(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				for j, k := range e {
+					m[fname+"."+j] = k
+				}
+			}
+		case reflect.Slice, reflect.Array:
+			e := mv.validateSlice(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				for j, k := range e {
+					m[fname+j] = k
+				}
+			}
+		case reflect.Interface:
+			e := mv.Validate(f.Interface())
+			// Unsupported error is ignored
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				for j, k := range e {
+					m[fname+"."+j] = k
 				}
 			}
 		}
@@ -314,14 +328,31 @@ func (mv *Validator) validateSlice(v interface{}) error {
 		for f.Kind() == reflect.Ptr && !f.IsNil() {
 			f = f.Elem()
 		}
-		if f.Kind() != reflect.Struct {
-			continue
-		}
-		e := mv.validateStruct(f.Interface())
-		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+		switch f.Kind() {
+		case reflect.Struct:
+			e := mv.validateStruct(f.Interface())
 			fname := fmt.Sprintf("[%d].", i)
-			for j, k := range e {
-				m[fname+j] = k
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				for j, k := range e {
+					m[fname+j] = k
+				}
+			}
+		case reflect.Slice, reflect.Array:
+			e := mv.validateSlice(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				fname := fmt.Sprintf("[%d]", i)
+				for j, k := range e {
+					m[fname+j] = k
+				}
+			}
+		case reflect.Interface:
+			e := mv.Validate(f.Interface())
+			// Unsupported error is ignored
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				fname := fmt.Sprintf("[%d].", i)
+				for j, k := range e {
+					m[fname+j] = k
+				}
 			}
 		}
 	}
@@ -379,4 +410,11 @@ func (mv *Validator) parseTags(t string) ([]tag, error) {
 
 	}
 	return tags, nil
+}
+
+func isSupported(kind reflect.Kind) bool {
+	return kind == reflect.Struct ||
+		kind == reflect.Slice ||
+		kind == reflect.Array ||
+		kind == reflect.Interface
 }
