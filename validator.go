@@ -24,52 +24,68 @@ import (
 	"unicode"
 )
 
+// Enhanced errors...by Ed (sung to the tune By Mennen)
+// Use this when you want your text message to be a formatted string
+type TextErrf struct {
+    MessageTemplate string
+    Code int
+}
+
 // TextErr is an error that also implements the TextMarshaller interface for
 // serializing out to various plain text encodings. Packages creating their
 // own custom errors should use TextErr if they're intending to use serializing
 // formats like json, msgpack etc.
 type TextErr struct {
-	Err error
+    Message string
+    Code int
+    Params []interface{}
 }
 
-// Error implements the error interface.
-func (t TextErr) Error() string {
-	return t.Err.Error()
+func (vet TextErrf) New(params ...interface{}) error {
+    return TextErr{
+        Message: fmt.Sprintf(vet.MessageTemplate, params...),
+        Params: params,
+        Code: vet.Code,
+    }
+}
+
+func (ve TextErr) Error() string {
+    return ve.Message
 }
 
 // MarshalText implements the TextMarshaller
-func (t TextErr) MarshalText() ([]byte, error) {
-	return []byte(t.Err.Error()), nil
-}
+//func (ve TextErr) MarshalText() ([]byte, error) {
+//    return []byte(ve.Message), nil
+//}
 
 var (
 	// ErrZeroValue is the error returned when variable has zero valud
 	// and nonzero was specified
-	ErrZeroValue = TextErr{errors.New("zero value")}
+    ErrZeroValue = TextErr{Message: "This field is required and was not supplied", Code: 901}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
-	ErrMin = TextErr{errors.New("less than min")}
+    ErrMin = TextErrf{MessageTemplate: "Value must be greater than or equal to %v", Code: 903}
 	// ErrMax is the error returned when variable is more than
 	// maximum specified
-	ErrMax = TextErr{errors.New("greater than max")}
+    ErrMax = TextErrf{MessageTemplate: "Value must be less than or equal to %v", Code: 904}
 	// ErrLen is the error returned when length is not equal to
 	// param specified
-	ErrLen = TextErr{errors.New("invalid length")}
+    ErrLen = TextErrf{MessageTemplate: "Value must have a length of %v", Code: 905}
 	// ErrRegexp is the error returned when the value does not
 	// match the provided regular expression parameter
-	ErrRegexp = TextErr{errors.New("regular expression mismatch")}
+	ErrRegexp = TextErr{Message: "regular expression mismatch"}
 	// ErrUnsupported is the error error returned when a validation rule
 	// is used with an unsupported variable type
-	ErrUnsupported = TextErr{errors.New("unsupported type")}
+	ErrUnsupported = TextErr{Message: "unsupported type"}
 	// ErrBadParameter is the error returned when an invalid parameter
 	// is provided to a validation rule (e.g. a string where an int was
 	// expected (max=foo,len=bar) or missing a parameter when one is required (len=))
-	ErrBadParameter = TextErr{errors.New("bad parameter")}
+	ErrBadParameter = TextErr{Message: "bad parameter"}
 	// ErrUnknownTag is the error returned when an unknown tag is found
-	ErrUnknownTag = TextErr{errors.New("unknown tag")}
+	ErrUnknownTag = TextErr{Message: "unknown tag"}
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
-	ErrInvalid = TextErr{errors.New("invalid value")}
+	ErrInvalid = TextErr{Message: "This field has an invalid format", Code: 902}
 )
 
 // ErrorMap is a map which contains all errors from validating a struct.
@@ -197,70 +213,19 @@ func Validate(v interface{}) error {
 // on 'validator' tags and returns errors found indexed
 // by the field name.
 func (mv *Validator) Validate(v interface{}) error {
-	sv := reflect.ValueOf(v)
-	st := reflect.TypeOf(v)
-	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
-		return mv.Validate(sv.Elem().Interface())
-	}
-	if sv.Kind() != reflect.Struct {
-		return ErrUnsupported
-	}
-
-	nfields := sv.NumField()
-	m := make(ErrorMap)
-	for i := 0; i < nfields; i++ {
-		f := sv.Field(i)
-		// deal with pointers
-		for f.Kind() == reflect.Ptr && !f.IsNil() {
-			f = f.Elem()
-		}
-		tag := st.Field(i).Tag.Get(mv.tagName)
-		if f.Kind() == reflect.Ptr {
-			ff := f.Elem()
-			if ff.Kind() == reflect.Struct {
-
-			}
-		}
-		if tag == "-" {
-			continue
-		}
-		if tag == "" && f.Kind() != reflect.Struct {
-			continue
-		}
-		fname := st.Field(i).Name
-		var errs ErrorArray
-		switch f.Kind() {
-		case reflect.Struct:
-			if !unicode.IsUpper(rune(fname[0])) {
-				continue
-			}
-			e := mv.Validate(f.Interface())
-			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-				for j, k := range e {
-					m[fname+"."+j] = k
-				}
-			}
-
-		default:
-			err := mv.Valid(f.Interface(), tag)
-			if errors, ok := err.(ErrorArray); ok {
-				errs = errors
-			} else {
-				if err != nil {
-					errs = ErrorArray{err}
-				}
-			}
-		}
-
-		if len(errs) > 0 {
-			m[st.Field(i).Name] = errs
-		}
-	}
-	if len(m) > 0 {
-		return m
-	}
-	return nil
+    sv := reflect.ValueOf(v)
+    if sv.Kind() == reflect.Ptr && !sv.IsNil() {
+        return mv.Validate(sv.Elem().Interface())
+    }
+    switch sv.Kind() {
+        case reflect.Struct:
+        return mv.validateStruct(v)
+        case reflect.Slice, reflect.Array:
+        return mv.validateSlice(v)
+    }
+    return ErrUnsupported
 }
+
 
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
@@ -288,6 +253,130 @@ func (mv *Validator) Valid(val interface{}, tags string) error {
 		err = mv.validateVar(val, tags)
 	}
 	return err
+}
+
+// validateStruct validates a struct.
+func (mv *Validator) validateStruct(v interface{}) error {
+    sv := reflect.ValueOf(v)
+    st := reflect.TypeOf(v)
+
+    nfields := sv.NumField()
+    m := make(ErrorMap)
+    for i := 0; i < nfields; i++ {
+        f := sv.Field(i)
+        // deal with pointers
+        for f.Kind() == reflect.Ptr && !f.IsNil() {
+            f = f.Elem()
+        }
+        tag := st.Field(i).Tag.Get(mv.tagName)
+        if tag == "-" {
+            continue
+        }
+        fkind := f.Kind()
+        if tag == "" && !isSupported(fkind) {
+            continue
+        }
+        fname := st.Field(i).Name
+
+        // Validate this field if tag specified
+        if tag != "" {
+            var errs ErrorArray
+
+            err := mv.Valid(f.Interface(), tag)
+            if errors, ok := err.(ErrorArray); ok {
+                errs = errors
+            } else {
+                if err != nil {
+                    errs = ErrorArray{err}
+                }
+            }
+
+            if len(errs) > 0 {
+                m[fname] = errs
+            }
+        }
+        // Ignore unexported fields
+        if unicode.IsLower(rune(fname[0])) {
+            continue
+        }
+        // Also validate children if this field is a struct, slice or array
+        switch fkind {
+            case reflect.Struct:
+            e := mv.validateStruct(f.Interface())
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                for j, k := range e {
+                    m[fname+"."+j] = k
+                }
+            }
+            case reflect.Slice, reflect.Array:
+            e := mv.validateSlice(f.Interface())
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                for j, k := range e {
+                    m[fname+j] = k
+                }
+            }
+            case reflect.Interface:
+            e := mv.Validate(f.Interface())
+            // Unsupported error is ignored
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                for j, k := range e {
+                    m[fname+"."+j] = k
+                }
+            }
+        }
+    }
+    if len(m) > 0 {
+        return m
+    }
+    return nil
+}
+
+// validateSlice validates an array or slice of struct.
+func (mv *Validator) validateSlice(v interface{}) error {
+    sv := reflect.ValueOf(v)
+    length := sv.Len()
+    if length == 0 {
+        return nil
+    }
+    m := make(ErrorMap)
+    for i := 0; i < length; i++ {
+        f := sv.Index(i)
+        // deal with pointers
+        for f.Kind() == reflect.Ptr && !f.IsNil() {
+            f = f.Elem()
+        }
+        switch f.Kind() {
+            case reflect.Struct:
+            e := mv.validateStruct(f.Interface())
+            fname := fmt.Sprintf("[%d].", i)
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                for j, k := range e {
+                    m[fname+j] = k
+                }
+            }
+            case reflect.Slice, reflect.Array:
+            e := mv.validateSlice(f.Interface())
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                fname := fmt.Sprintf("[%d]", i)
+                for j, k := range e {
+                    m[fname+j] = k
+                }
+            }
+            case reflect.Interface:
+            e := mv.Validate(f.Interface())
+            // Unsupported error is ignored
+            if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+                fname := fmt.Sprintf("[%d].", i)
+                for j, k := range e {
+                    m[fname+j] = k
+                }
+            }
+        }
+    }
+    if len(m) > 0 {
+        return m
+    }
+    return nil
 }
 
 // validateVar validates one single variable
@@ -338,4 +427,11 @@ func (mv *Validator) parseTags(t string) ([]tag, error) {
 
 	}
 	return tags, nil
+}
+
+func isSupported(kind reflect.Kind) bool {
+    return kind == reflect.Struct ||
+    kind == reflect.Slice ||
+    kind == reflect.Array ||
+    kind == reflect.Interface
 }
