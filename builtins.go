@@ -142,7 +142,7 @@ func min(v interface{}, param string) error {
 		return ErrUnsupported
 	}
 	if invalid {
-		return ErrMin
+		return ErrMin.New(st.String())
 	}
 	return nil
 }

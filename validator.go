@@ -24,6 +24,30 @@ import (
 	"unicode"
 )
 
+// Enhanced errors...by Ed (sung to the tune By Mennen)
+type templateErr struct {
+    messageTemplate string
+}
+
+// instance of an error
+type ValErr struct {
+    Message string
+    Params []interface{}
+}
+
+func (vet templateErr) New(params ...interface{}) ValErr {
+    return ValErr{Message: fmt.Sprintf(vet.messageTemplate, params...), Params: params}
+}
+
+func (ve ValErr) Error() string {
+    return ve.Message
+}
+
+// MarshalText implements the TextMarshaller
+func (ve ValErr) MarshalText() ([]byte, error) {
+    return []byte(ve.Message), nil
+}
+
 // TextErr is an error that also implements the TextMarshaller interface for
 // serializing out to various plain text encodings. Packages creating their
 // own custom errors should use TextErr if they're intending to use serializing
@@ -48,9 +72,11 @@ var (
 	ErrZeroValue = TextErr{errors.New("zero value")}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
-	ErrMin = TextErr{errors.New("less than min")}
+    ErrMin = templateErr{messageTemplate: "Value must be greater than or equal to %v"}
+	//ErrMin = TextErr{errors.New("less than min")}
 	// ErrMax is the error returned when variable is more than
 	// maximum specified
+    //_ErrMax = templateErr{messageTemplate: "Value must be less than or equal to %v"}
 	ErrMax = TextErr{errors.New("greater than max")}
 	// ErrLen is the error returned when length is not equal to
 	// param specified
