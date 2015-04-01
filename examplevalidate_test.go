@@ -20,7 +20,8 @@ import (
 	"fmt"
 	"sort"
 
-	"gopkg.in/validator.v2"
+	"github.com/aocsolutions/validator"
+    "reflect"
 )
 
 // This example demonstrates a custom function to process template text.
@@ -57,7 +58,7 @@ func ExampleValidate() {
 	} else {
 		errs := err.(validator.ErrorMap)
 		// See if Address was empty
-		if errs["Address.Street"][0] == validator.ErrZeroValue {
+        if reflect.DeepEqual(errs["Address.Street"][0], validator.ErrZeroValue) {
 			fmt.Println("Street cannot be empty.")
 		}
 
@@ -83,8 +84,8 @@ func ExampleValidate() {
 	// Output:
 	// Street cannot be empty.
 	// Invalid due to fields:
-	//	 - Address.Street (zero value)
-	// 	 - Age (less than min)
+	//	 - Address.Street (This field is required and was not supplied)
+	// 	 - Age (Value must be greater than or equal to 18)
 	// 	 - Email (regular expression mismatch)
 }
 
@@ -125,7 +126,7 @@ func ExampleSetTag() {
 
 	// Output:
 	// foo --> valid: true, errs: <nil>
-	// bar --> valid: false, errs: A: less than min
+	// bar --> valid: false, errs: A: Value must be greater than or equal to 10
 }
 
 // This example shows you how to change the tag name
@@ -141,5 +142,5 @@ func ExampleWithTag() {
 
 	// Output:
 	// foo --> valid: true, errs: <nil>
-	// bar --> valid: false, errs: A: less than min
+	// bar --> valid: false, errs: A: Value must be greater than or equal to 10
 }

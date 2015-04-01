@@ -18,9 +18,9 @@ package validator_test
 
 import (
 	"testing"
-
+    "github.com/aocsolutions/validator"
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v2"
+    "reflect"
 )
 
 func Test(t *testing.T) {
@@ -63,9 +63,9 @@ func (ms *MySuite) TestValidate(c *C) {
 	errs, ok := err.(validator.ErrorMap)
 	c.Assert(ok, Equals, true)
 	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
-	c.Assert(errs["B"], HasError, validator.ErrLen)
-	c.Assert(errs["B"], HasError, validator.ErrMin)
-	c.Assert(errs["B"], HasError, validator.ErrMax)
+	c.Assert(errs["B"], HasError, validator.ErrLen.New("8"))
+	c.Assert(errs["B"], HasError, validator.ErrMin.New("6"))
+	c.Assert(errs["B"], HasError, validator.ErrMax.New("4"))
 	c.Assert(errs["Sub.A"], HasLen, 0)
 	c.Assert(errs["Sub.B"], HasLen, 0)
 	c.Assert(errs["Sub.C"], HasLen, 2)
@@ -88,9 +88,9 @@ func (ms *MySuite) TestValidSlice(c *C) {
 	c.Assert(err, NotNil)
 	errs, ok = err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrMin)
-	c.Assert(errs, HasError, validator.ErrMax)
-	c.Assert(errs, HasError, validator.ErrLen)
+	c.Assert(errs, HasError, validator.ErrMin.New("11"))
+	c.Assert(errs, HasError, validator.ErrMax.New("5"))
+	c.Assert(errs, HasError, validator.ErrLen.New("9"))
 	c.Assert(errs, Not(HasError), validator.ErrZeroValue)
 }
 
@@ -106,14 +106,14 @@ func (ms *MySuite) TestValidMap(c *C) {
 	c.Assert(err, NotNil)
 	errs, ok = err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrMin)
+	c.Assert(errs, HasError, validator.ErrMin.New("1"))
 
 	m = map[string]string{"A": "a", "B": "a"}
 	err = validator.Valid(m, "max=1")
 	c.Assert(err, NotNil)
 	errs, ok = err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrMax)
+	c.Assert(errs, HasError, validator.ErrMax.New("1"))
 
 	err = validator.Valid(m, "min=2, max=5")
 	c.Assert(err, IsNil)
@@ -129,9 +129,9 @@ func (ms *MySuite) TestValidMap(c *C) {
 	c.Assert(err, NotNil)
 	errs, ok = err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrLen)
-	c.Assert(errs, HasError, validator.ErrMin)
-	c.Assert(errs, HasError, validator.ErrMax)
+	c.Assert(errs, HasError, validator.ErrLen.New("4"))
+	c.Assert(errs, HasError, validator.ErrMin.New("6"))
+	c.Assert(errs, HasError, validator.ErrMax.New("1"))
 	c.Assert(errs, Not(HasError), validator.ErrZeroValue)
 
 }
@@ -159,14 +159,14 @@ func (ms *MySuite) TestValidInt(c *C) {
 	c.Assert(err, NotNil)
 	errs, ok := err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrMin)
-	c.Assert(errs, HasError, validator.ErrMax)
+	c.Assert(errs, HasError, validator.ErrMin.New("124"))
+	c.Assert(errs, HasError, validator.ErrMax.New("122"))
 
 	err = validator.Valid(i, "max=10")
 	c.Assert(err, NotNil)
 	errs, ok = err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrMax)
+	c.Assert(errs, HasError, validator.ErrMax.New("10"))
 }
 
 func (ms *MySuite) TestValidString(c *C) {
@@ -178,7 +178,7 @@ func (ms *MySuite) TestValidString(c *C) {
 	c.Assert(err, NotNil)
 	errs, ok := err.(validator.ErrorArray)
 	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, validator.ErrLen)
+	c.Assert(errs, HasError, validator.ErrLen.New("0"))
 
 	err = validator.Valid(s, "regexp=^[tes]{4}.*")
 	c.Assert(err, IsNil)
@@ -192,8 +192,8 @@ func (ms *MySuite) TestValidString(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 2)
 	c.Assert(errs, HasError, validator.ErrZeroValue)
-	c.Assert(errs, HasError, validator.ErrLen)
-	c.Assert(errs, Not(HasError), validator.ErrMax)
+	c.Assert(errs, HasError, validator.ErrLen.New("3"))
+	c.Assert(errs, Not(HasError), validator.ErrMax.New("1"))
 }
 
 func (ms *MySuite) TestValidateStructVar(c *C) {
@@ -202,7 +202,7 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 	}
 	t := test{}
 	err := validator.Valid(t, "")
-	c.Assert(err, Equals, validator.ErrUnsupported)
+	c.Assert(err.Error(), Equals, validator.ErrUnsupported.Error())
 }
 
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
@@ -286,7 +286,8 @@ func (c *hasErrorChecker) Check(params []interface{}, names []string) (bool, str
 	}
 
 	for _, v := range slice {
-		if v == value {
+        if reflect.DeepEqual(v, value) {
+		//if v == value {
 			return true, ""
 		}
 	}

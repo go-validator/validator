@@ -25,27 +25,10 @@ import (
 )
 
 // Enhanced errors...by Ed (sung to the tune By Mennen)
-type templateErr struct {
+// Use this when you want your text message to be a formatted string
+type TextErrf struct {
     messageTemplate string
-}
-
-// instance of an error
-type ValErr struct {
-    Message string
-    Params []interface{}
-}
-
-func (vet templateErr) New(params ...interface{}) ValErr {
-    return ValErr{Message: fmt.Sprintf(vet.messageTemplate, params...), Params: params}
-}
-
-func (ve ValErr) Error() string {
-    return ve.Message
-}
-
-// MarshalText implements the TextMarshaller
-func (ve ValErr) MarshalText() ([]byte, error) {
-    return []byte(ve.Message), nil
+    code int
 }
 
 // TextErr is an error that also implements the TextMarshaller interface for
@@ -53,49 +36,56 @@ func (ve ValErr) MarshalText() ([]byte, error) {
 // own custom errors should use TextErr if they're intending to use serializing
 // formats like json, msgpack etc.
 type TextErr struct {
-	Err error
+    Message string
+    Code int
+    Params []interface{}
 }
 
-// Error implements the error interface.
-func (t TextErr) Error() string {
-	return t.Err.Error()
+func (vet TextErrf) New(params ...interface{}) error {
+    return TextErr{
+        Message: fmt.Sprintf(vet.messageTemplate, params...),
+        Params: params,
+        Code: vet.code,
+    }
+}
+
+func (ve TextErr) Error() string {
+    return ve.Message
 }
 
 // MarshalText implements the TextMarshaller
-func (t TextErr) MarshalText() ([]byte, error) {
-	return []byte(t.Err.Error()), nil
+func (ve TextErr) MarshalText() ([]byte, error) {
+    return []byte(ve.Message), nil
 }
 
 var (
 	// ErrZeroValue is the error returned when variable has zero valud
 	// and nonzero was specified
-	ErrZeroValue = TextErr{errors.New("zero value")}
+    ErrZeroValue = TextErr{Message: "This field is required and was not supplied", Code: 901}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
-    ErrMin = templateErr{messageTemplate: "Value must be greater than or equal to %v"}
-	//ErrMin = TextErr{errors.New("less than min")}
+    ErrMin = TextErrf{messageTemplate: "Value must be greater than or equal to %v", code: 903}
 	// ErrMax is the error returned when variable is more than
 	// maximum specified
-    //_ErrMax = templateErr{messageTemplate: "Value must be less than or equal to %v"}
-	ErrMax = TextErr{errors.New("greater than max")}
+    ErrMax = TextErrf{messageTemplate: "Value must be less than or equal to %v", code: 904}
 	// ErrLen is the error returned when length is not equal to
 	// param specified
-	ErrLen = TextErr{errors.New("invalid length")}
+    ErrLen = TextErrf{messageTemplate: "Value must have a length of %v", code: 905}
 	// ErrRegexp is the error returned when the value does not
 	// match the provided regular expression parameter
-	ErrRegexp = TextErr{errors.New("regular expression mismatch")}
+	ErrRegexp = TextErr{Message: "regular expression mismatch"}
 	// ErrUnsupported is the error error returned when a validation rule
 	// is used with an unsupported variable type
-	ErrUnsupported = TextErr{errors.New("unsupported type")}
+	ErrUnsupported = TextErr{Message: "unsupported type"}
 	// ErrBadParameter is the error returned when an invalid parameter
 	// is provided to a validation rule (e.g. a string where an int was
 	// expected (max=foo,len=bar) or missing a parameter when one is required (len=))
-	ErrBadParameter = TextErr{errors.New("bad parameter")}
+	ErrBadParameter = TextErr{Message: "bad parameter"}
 	// ErrUnknownTag is the error returned when an unknown tag is found
-	ErrUnknownTag = TextErr{errors.New("unknown tag")}
+	ErrUnknownTag = TextErr{Message: "unknown tag"}
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
-	ErrInvalid = TextErr{errors.New("invalid value")}
+	ErrInvalid = TextErr{Message: "This field has an invalid format", Code: 902}
 )
 
 // ErrorMap is a map which contains all errors from validating a struct.

@@ -95,7 +95,7 @@ func length(v interface{}, param string) error {
 		return ErrUnsupported
 	}
 	if !valid {
-		return ErrLen
+        return ErrLen.New(param)
 	}
 	return nil
 }
@@ -106,6 +106,7 @@ func length(v interface{}, param string) error {
 // and slices it tests the number of items.
 func min(v interface{}, param string) error {
 	st := reflect.ValueOf(v)
+
 	invalid := false
 	switch st.Kind() {
 	case reflect.String:
@@ -142,7 +143,7 @@ func min(v interface{}, param string) error {
 		return ErrUnsupported
 	}
 	if invalid {
-		return ErrMin.New(st.String())
+		return ErrMin.New(param)
 	}
 	return nil
 }
@@ -189,7 +190,7 @@ func max(v interface{}, param string) error {
 		return ErrUnsupported
 	}
 	if invalid {
-		return ErrMax
+        return ErrMax.New(param)
 	}
 	return nil
 }
