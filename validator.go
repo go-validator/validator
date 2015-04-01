@@ -27,8 +27,8 @@ import (
 // Enhanced errors...by Ed (sung to the tune By Mennen)
 // Use this when you want your text message to be a formatted string
 type TextErrf struct {
-    messageTemplate string
-    code int
+    MessageTemplate string
+    Code int
 }
 
 // TextErr is an error that also implements the TextMarshaller interface for
@@ -43,9 +43,9 @@ type TextErr struct {
 
 func (vet TextErrf) New(params ...interface{}) error {
     return TextErr{
-        Message: fmt.Sprintf(vet.messageTemplate, params...),
+        Message: fmt.Sprintf(vet.MessageTemplate, params...),
         Params: params,
-        Code: vet.code,
+        Code: vet.Code,
     }
 }
 
@@ -64,13 +64,13 @@ var (
     ErrZeroValue = TextErr{Message: "This field is required and was not supplied", Code: 901}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
-    ErrMin = TextErrf{messageTemplate: "Value must be greater than or equal to %v", code: 903}
+    ErrMin = TextErrf{MessageTemplate: "Value must be greater than or equal to %v", Code: 903}
 	// ErrMax is the error returned when variable is more than
 	// maximum specified
-    ErrMax = TextErrf{messageTemplate: "Value must be less than or equal to %v", code: 904}
+    ErrMax = TextErrf{MessageTemplate: "Value must be less than or equal to %v", Code: 904}
 	// ErrLen is the error returned when length is not equal to
 	// param specified
-    ErrLen = TextErrf{messageTemplate: "Value must have a length of %v", code: 905}
+    ErrLen = TextErrf{MessageTemplate: "Value must have a length of %v", Code: 905}
 	// ErrRegexp is the error returned when the value does not
 	// match the provided regular expression parameter
 	ErrRegexp = TextErr{Message: "regular expression mismatch"}
