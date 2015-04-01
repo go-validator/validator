@@ -54,9 +54,9 @@ func (ve TextErr) Error() string {
 }
 
 // MarshalText implements the TextMarshaller
-func (ve TextErr) MarshalText() ([]byte, error) {
-    return []byte(ve.Message), nil
-}
+//func (ve TextErr) MarshalText() ([]byte, error) {
+//    return []byte(ve.Message), nil
+//}
 
 var (
 	// ErrZeroValue is the error returned when variable has zero valud
