@@ -99,7 +99,7 @@ Then it is possible to use the notzz validation tag. This will print
 		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
-	if valid, errs := validator.Validate(t); !valid {
+	if errs := validator.Validate(t); errs != nil {
 		fmt.Printf("Field A error: %s\n", errs["A"][0])
 	}
 
