@@ -17,6 +17,8 @@
 package validator_test
 
 import (
+	"errors"
+	"reflect"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -45,6 +47,11 @@ type TestStruct struct {
 		D *string `validate:"nonzero"`
 	}
 	D *Simple `validate:"nonzero"`
+}
+
+type TestMultiStruct struct {
+	A string `validate:"same"`
+	B string `validate:"same"`
 }
 
 func (ms *MySuite) TestValidate(c *C) {
@@ -219,6 +226,63 @@ func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
 
 	errs := validator.Valid(test2{}, "-")
 	c.Assert(errs, IsNil)
+}
+
+func notSomething(v interface{}, param string) error {
+	st := reflect.ValueOf(v)
+	if st.Kind() != reflect.String {
+		return validator.ErrUnsupported
+	}
+	if st.String() == param {
+		return errors.New("value cannot be " + param)
+	}
+	return nil
+}
+
+func (ms *MySuite) TestCustomValidation(c *C) {
+	type test1 struct {
+		A string `validate:"notSomething=ABC"`
+	}
+
+	validator.SetValidationFunc("notSomething", notSomething)
+	defer validator.SetValidationFunc("notSomething", nil)
+
+	err1 := validator.Validate(test1{"CBA"})
+	c.Assert(err1, IsNil)
+
+	err2 := validator.Validate(test1{"ABC"})
+	c.Assert(err2, NotNil)
+	errs, ok := err2.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["A"][0].Error(), Equals, "value cannot be ABC")
+}
+
+func same(v interface{}, param string) error {
+	st, ok := v.(TestMultiStruct)
+	if !ok {
+		return validator.ErrInvalid
+	}
+	if st.A == st.B {
+		return nil
+	} else {
+		return errors.New("A and B must be same")
+	}
+}
+
+func (ms *MySuite) TestCustomMultiValidation(c *C) {
+	validator.SetMultiValidationFunc("same", same)
+	defer validator.SetMultiValidationFunc("same", nil)
+
+	err1 := validator.Validate(TestMultiStruct{A: "X", B: "X"})
+	c.Assert(err1, IsNil)
+
+	err2 := validator.Validate(TestMultiStruct{A: "X", B: "Y"})
+	c.Assert(err2, NotNil)
+	errs, ok := err2.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["A"][0].Error(), Equals, "A and B must be same")
 }
 
 func (ms *MySuite) TestUnknownTag(c *C) {

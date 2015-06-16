@@ -103,13 +103,16 @@ func (err ErrorArray) Error() string {
 // field and a parameter used for the respective validation tag.
 type ValidationFunc func(v interface{}, param string) error
 
+type MultiValidationFunc func(v interface{}, param string) error
+
 // Validator implements a validator
 type Validator struct {
 	// Tag name being used.
 	tagName string
 	// validationFuncs is a map of ValidationFuncs indexed
 	// by their name.
-	validationFuncs map[string]ValidationFunc
+	validationFuncs      map[string]ValidationFunc
+	multiValidationFuncs map[string]MultiValidationFunc
 }
 
 // Helper validator so users can use the
@@ -127,6 +130,7 @@ func NewValidator() *Validator {
 			"max":     max,
 			"regexp":  regex,
 		},
+		multiValidationFuncs: map[string]MultiValidationFunc{},
 	}
 }
 
@@ -159,8 +163,9 @@ func (mv *Validator) WithTag(tag string) *Validator {
 // Copy a validator
 func (mv *Validator) copy() *Validator {
 	return &Validator{
-		tagName:         mv.tagName,
-		validationFuncs: mv.validationFuncs,
+		tagName:              mv.tagName,
+		validationFuncs:      mv.validationFuncs,
+		multiValidationFuncs: mv.multiValidationFuncs,
 	}
 }
 
@@ -169,6 +174,10 @@ func (mv *Validator) copy() *Validator {
 // is the same as removing the constraint function from the list.
 func SetValidationFunc(name string, vf ValidationFunc) error {
 	return defaultValidator.SetValidationFunc(name, vf)
+}
+
+func SetMultiValidationFunc(name string, vf MultiValidationFunc) error {
+	return defaultValidator.SetMultiValidationFunc(name, vf)
 }
 
 // SetValidationFunc sets the function to be used for a given
@@ -183,6 +192,18 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 		return nil
 	}
 	mv.validationFuncs[name] = vf
+	return nil
+}
+
+func (mv *Validator) SetMultiValidationFunc(name string, vf MultiValidationFunc) error {
+	if name == "" {
+		return errors.New("name cannot be empty")
+	}
+	if vf == nil {
+		delete(mv.multiValidationFuncs, name)
+		return nil
+	}
+	mv.multiValidationFuncs[name] = vf
 	return nil
 }
 
@@ -208,6 +229,9 @@ func (mv *Validator) Validate(v interface{}) error {
 
 	nfields := sv.NumField()
 	m := make(ErrorMap)
+	// initial cap of multi tags = number of fields
+	processedMultiTags := make([]tag, 0, nfields)
+
 	for i := 0; i < nfields; i++ {
 		f := sv.Field(i)
 		// deal with pointers
@@ -250,6 +274,14 @@ func (mv *Validator) Validate(v interface{}) error {
 					errs = ErrorArray{err}
 				}
 			}
+			processedMultiTags, err = mv.validateMulti(v, tag, processedMultiTags)
+			if errors, ok := err.(ErrorArray); ok {
+				errs = append(errs, errors)
+			} else {
+				if err != nil {
+					errs = append(errs, ErrorArray{err})
+				}
+			}
 		}
 
 		if len(errs) > 0 {
@@ -290,6 +322,34 @@ func (mv *Validator) Valid(val interface{}, tags string) error {
 	return err
 }
 
+func (mv *Validator) validateMulti(v interface{}, tag string, processedMultiTags []tag) ([]tag, error) {
+	tags, err := mv.parseTags(tag)
+	if err != nil {
+		// unknown tag found, give up.
+		return nil, err
+	}
+	errs := make(ErrorArray, 0, len(tags))
+TagsLoop:
+	for _, t := range tags {
+		for _, processedTag := range processedMultiTags {
+			if t.Name == processedTag.Name {
+				// don't validate twice for the same tag
+				continue TagsLoop
+			}
+		}
+		if t.MultiFn != nil {
+			if err := t.MultiFn(v, t.Param); err != nil {
+				errs = append(errs, err)
+			}
+			processedMultiTags = append(processedMultiTags, t)
+		}
+	}
+	if len(errs) > 0 {
+		return processedMultiTags, errs
+	}
+	return processedMultiTags, nil
+}
+
 // validateVar validates one single variable
 func (mv *Validator) validateVar(v interface{}, tag string) error {
 	tags, err := mv.parseTags(tag)
@@ -299,8 +359,10 @@ func (mv *Validator) validateVar(v interface{}, tag string) error {
 	}
 	errs := make(ErrorArray, 0, len(tags))
 	for _, t := range tags {
-		if err := t.Fn(v, t.Param); err != nil {
-			errs = append(errs, err)
+		if t.Fn != nil {
+			if err := t.Fn(v, t.Param); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	if len(errs) > 0 {
@@ -311,9 +373,10 @@ func (mv *Validator) validateVar(v interface{}, tag string) error {
 
 // tag represents one of the tag items
 type tag struct {
-	Name  string         // name of the tag
-	Fn    ValidationFunc // validation function to call
-	Param string         // parameter to send to the validation function
+	Name    string         // name of the tag
+	Fn      ValidationFunc // validation function to call
+	MultiFn MultiValidationFunc
+	Param   string // parameter to send to the validation function
 }
 
 // parseTags parses all individual tags found within a struct tag.
@@ -331,8 +394,16 @@ func (mv *Validator) parseTags(t string) ([]tag, error) {
 			tg.Param = strings.Trim(v[1], " ")
 		}
 		var found bool
-		if tg.Fn, found = mv.validationFuncs[tg.Name]; !found {
-			return []tag{}, ErrUnknownTag
+		validationFunc, found := mv.validationFuncs[tg.Name]
+		if !found {
+			multiValidationFunc, found := mv.multiValidationFuncs[tg.Name]
+			if !found {
+				return []tag{}, ErrUnknownTag
+			} else {
+				tg.MultiFn = multiValidationFunc
+			}
+		} else {
+			tg.Fn = validationFunc
 		}
 		tags = append(tags, tg)
 
