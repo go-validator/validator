@@ -224,7 +224,7 @@ func (mv *Validator) Validate(v interface{}) error {
 		if tag == "-" {
 			continue
 		}
-		if tag == "" && f.Kind() != reflect.Struct {
+		if tag == "" && !(f.Kind() == reflect.Struct || f.Kind() == reflect.Slice) {
 			continue
 		}
 		fname := st.Field(i).Name
@@ -238,6 +238,17 @@ func (mv *Validator) Validate(v interface{}) error {
 			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 				for j, k := range e {
 					m[fname+"."+j] = k
+				}
+			}
+
+		case reflect.Array:
+		case reflect.Slice:
+			errs = make(ErrorArray, 0, f.Len())
+			for i := 0; i < f.Len(); i++ {
+				elem := f.Index(i).Interface()
+				err := mv.Validate(elem)
+				if err != nil {
+					errs = append(errs, err)
 				}
 			}
 

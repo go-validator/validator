@@ -47,6 +47,13 @@ type TestStruct struct {
 	D *Simple `validate:"nonzero"`
 }
 
+type TestStructSlice struct {
+	E        int `validate:"nonzero"`
+	F        int
+	Required []TestStruct `validate:"nonzero"`
+	Optional []TestStruct
+}
+
 func (ms *MySuite) TestValidate(c *C) {
 	t := TestStruct{
 		A: 0,
@@ -264,6 +271,31 @@ func (ms *MySuite) TestBadParameter(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+}
+
+func (ms *MySuite) TestValidSliceOfStructs(c *C) {
+	//this should fail because TestStruct is not valid
+	s := TestStructSlice{E: 1, Required: []TestStruct{TestStruct{}}}
+	err := validator.Validate(s)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+
+	c.Assert(errs["Required"], HasLen, 1)
+	tsErrs, ok := errs["Required"][0].(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(tsErrs["A"], HasError, validator.ErrZeroValue)
+
+	s = TestStructSlice{E: 2, Required: []TestStruct{TestStruct{}, TestStruct{}}, Optional: []TestStruct{TestStruct{}}}
+	err = validator.Validate(s)
+	c.Assert(err, NotNil)
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["Required"], HasLen, 2)
+	c.Assert(errs["Optional"], HasLen, 1)
+	tsErrs, ok = errs["Optional"][0].(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(tsErrs["A"], HasError, validator.ErrZeroValue)
 }
 
 type hasErrorChecker struct {
