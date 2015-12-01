@@ -21,6 +21,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/validator.v2"
+	"reflect"
 )
 
 func Test(t *testing.T) {
@@ -197,12 +198,41 @@ func (ms *MySuite) TestValidString(c *C) {
 }
 
 func (ms *MySuite) TestValidateStructVar(c *C) {
+	// just verifies that a the given val is a struct
+	validator.SetValidationFunc("struct", func(val interface{}, _ string) error {
+		v := reflect.ValueOf(val)
+		if v.Kind() == reflect.Struct {
+			return nil
+		}
+		return validator.ErrUnsupported
+	})
+
 	type test struct {
 		A int
 	}
-	t := test{}
-	err := validator.Valid(t, "")
-	c.Assert(err, Equals, validator.ErrUnsupported)
+	err := validator.Valid(test{}, "struct")
+	c.Assert(err, IsNil)
+
+	type test2 struct {
+		B int
+	}
+	type test1 struct {
+		A test2 `validate:"struct"`
+	}
+
+	err = validator.Validate(test1{})
+	c.Assert(err, IsNil)
+
+	type test4 struct {
+		B int `validate:"foo"`
+	}
+	type test3 struct {
+		A test4
+	}
+	err = validator.Validate(test3{})
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A.B"], HasError, validator.ErrUnknownTag)
 }
 
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
