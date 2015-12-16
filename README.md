@@ -23,7 +23,7 @@ Please see http://godoc.org/gopkg.in/validator.v2 for detailed usage docs.
 A simple example would be.
 
 	type NewUserRequest struct {
-		Username string `validate:"min=3,max=40,regexp=^[a-zA-Z]$"`
+		Username string `validate:"min=3,max=40,regexp=^[a-zA-Z]*$"`
 		Name string     `validate:"nonzero"`
 		Age int         `validate:"min=21"`
 		Password string `validate:"min=8"`
