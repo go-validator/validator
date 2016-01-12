@@ -17,6 +17,7 @@
 package validator
 
 import (
+	"encoding/csv"
 	"errors"
 	"reflect"
 	"strings"
@@ -251,7 +252,14 @@ type tag struct {
 
 // parseTags parses all individual tags found within a struct tag.
 func (mv *Validator) parseTags(t string) ([]tag, error) {
-	tl := strings.Split(t, ",")
+	r := csv.NewReader(strings.NewReader(t))
+
+	records, err := r.ReadAll()
+	if err != nil || len(records) != 1 {
+		return []tag{}, ErrUnknownTag
+	}
+	tl := records[0]
+
 	tags := make([]tag, 0, len(tl))
 	for _, i := range tl {
 		tg := tag{}

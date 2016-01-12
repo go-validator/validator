@@ -19,7 +19,7 @@ package validator_test
 import (
 	"fmt"
 
-	"gopkg.in/validator.v1"
+	"gopkg.in/validator.v2"
 )
 
 // This example demonstrates a custom function to process template text.

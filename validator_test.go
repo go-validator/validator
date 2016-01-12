@@ -17,10 +17,11 @@
 package validator_test
 
 import (
-	. "gopkg.in/check.v1"
 	"testing"
 
-	"gopkg.in/validator.v1"
+	. "gopkg.in/check.v1"
+
+	"gopkg.in/validator.v2"
 )
 
 func Test(t *testing.T) {
@@ -153,6 +154,9 @@ func (ms *MySuite) TestValidString(c *C) {
 
 	_, errs = validator.Valid(s, "len=0")
 	c.Assert(errs, HasError, validator.ErrLen)
+
+	_, errs = validator.Valid(s, `"regexp=^[a-z]{4,5}.*"`)
+	c.Assert(errs, HasLen, 0)
 
 	_, errs = validator.Valid(s, "regexp=^[tes]{4}.*")
 	c.Assert(errs, HasLen, 0)
