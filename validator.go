@@ -215,33 +215,13 @@ func (mv *Validator) Validate(v interface{}) error {
 			f = f.Elem()
 		}
 		tag := st.Field(i).Tag.Get(mv.tagName)
-		if f.Kind() == reflect.Ptr {
-			ff := f.Elem()
-			if ff.Kind() == reflect.Struct {
-
-			}
-		}
 		if tag == "-" {
-			continue
-		}
-		if tag == "" && f.Kind() != reflect.Struct {
 			continue
 		}
 		fname := st.Field(i).Name
 		var errs ErrorArray
-		switch f.Kind() {
-		case reflect.Struct:
-			if !unicode.IsUpper(rune(fname[0])) {
-				continue
-			}
-			e := mv.Validate(f.Interface())
-			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-				for j, k := range e {
-					m[fname+"."+j] = k
-				}
-			}
 
-		default:
+		if tag != "" {
 			err := mv.Valid(f.Interface(), tag)
 			if errors, ok := err.(ErrorArray); ok {
 				errs = errors
@@ -251,7 +231,17 @@ func (mv *Validator) Validate(v interface{}) error {
 				}
 			}
 		}
-
+		if f.Kind() == reflect.Struct {
+			if !unicode.IsUpper(rune(fname[0])) {
+				continue
+			}
+			e := mv.Validate(f.Interface())
+			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+				for j, k := range e {
+					m[fname+"."+j] = k
+				}
+			}
+		}
 		if len(errs) > 0 {
 			m[st.Field(i).Name] = errs
 		}
@@ -280,8 +270,6 @@ func (mv *Validator) Valid(val interface{}, tags string) error {
 	}
 	var err error
 	switch v.Kind() {
-	case reflect.Struct:
-		return ErrUnsupported
 	case reflect.Invalid:
 		err = mv.validateVar(nil, tags)
 	default:
