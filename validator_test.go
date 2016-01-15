@@ -235,6 +235,71 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 	c.Assert(errs["A.B"], HasError, validator.ErrUnknownTag)
 }
 
+func (ms *MySuite) TestValidatePointerVar(c *C) {
+	// just verifies that a the given val is a struct
+	validator.SetValidationFunc("struct", func(val interface{}, _ string) error {
+		v := reflect.ValueOf(val)
+		if v.Kind() == reflect.Struct {
+			return nil
+		}
+		return validator.ErrUnsupported
+	})
+	validator.SetValidationFunc("nil", func(val interface{}, _ string) error {
+		v := reflect.ValueOf(val)
+		if v.IsNil() {
+			return nil
+		}
+		return validator.ErrUnsupported
+	})
+
+	type test struct {
+		A int
+	}
+	err := validator.Valid(&test{}, "struct")
+	c.Assert(err, IsNil)
+
+	type test2 struct {
+		B int
+	}
+	type test1 struct {
+		A *test2 `validate:"struct"`
+	}
+
+	err = validator.Validate(&test1{&test2{}})
+	c.Assert(err, IsNil)
+
+	type test4 struct {
+		B int `validate:"foo"`
+	}
+	type test3 struct {
+		A test4
+	}
+	err = validator.Validate(&test3{})
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A.B"], HasError, validator.ErrUnknownTag)
+
+	err = validator.Valid((*test)(nil), "nil")
+	c.Assert(err, IsNil)
+
+	type test5 struct {
+		A *test2 `validate:"nil"`
+	}
+	err = validator.Validate(&test5{})
+	c.Assert(err, IsNil)
+
+	type test6 struct {
+		A *test2 `validate:"nonzero"`
+	}
+	err = validator.Validate(&test6{})
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
+
+	err = validator.Validate(&test6{&test2{}})
+	c.Assert(err, IsNil)
+}
+
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
 	type test2 struct {
 		B int `validate:"min=1"`

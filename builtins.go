@@ -44,6 +44,8 @@ func nonzero(v interface{}, param string) error {
 		valid = st.Bool()
 	case reflect.Invalid:
 		valid = false // always invalid
+	case reflect.Struct:
+		valid = true // always valid since only nil pointers are empty
 	default:
 		return ErrUnsupported
 	}
