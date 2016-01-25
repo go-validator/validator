@@ -30,7 +30,7 @@ A simple example would be.
 	}
 
 	nur := NewUserRequest{Username: "something", Age: 20}
-	if valid, errs := validator.Validate(nur); !valid {
+	if err := validator.Validate(nur); err != nil {
 		// values not valid, deal with errors here
 	}
 
