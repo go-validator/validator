@@ -30,7 +30,7 @@ A simple example would be.
 	}
 
 	nur := NewUserRequest{Username: "something", Age: 20}
-	if valid, errs := validator.Validate(nur); !valid {
+	if err := validator.Validate(nur); err != nil {
 		// values not valid, deal with errors here
 	}
 
@@ -102,7 +102,7 @@ Then it is possible to use the notzz validation tag. This will print
 		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
-	if valid, errs := validator.Validate(t); !valid {
+	if err := validator.Validate(t); err != nil {
 		fmt.Printf("Field A error: %s\n", errs["A"][0])
 	}
 
