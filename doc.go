@@ -45,7 +45,7 @@ struct tags when defining a new struct type.
 Then validating a variable of type NewUserRequest becomes trivial.
 
 	nur := NewUserRequest{Username: "something", ...}
-	if valid, _ := validator.Validate(nur); valid {
+	if errs := validator.Validate(nur); errs != nil {
 		// do something
 	}
 
@@ -117,7 +117,7 @@ Then it is possible to use the notzz validation tag. This will print
 		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
-	if valid, errs := validator.Validate(t); !valid {
+	if errs := validator.Validate(t); errs != nil {
 		fmt.Printf("Field A error: %s\n", errs["A"][0])
 	}
 
@@ -142,7 +142,7 @@ And then the code below should print "Field A error: value cannot be ABC".
 		A string  `validate:"notsomething=ABC"`
 	}
 	t := T{"ABC"}
-	if valid, errs := validator.Validate(t); !valid {
+	if errs := validator.Validate(t); errs != nil {
 		fmt.Printf("Field A error: %s\n", errs["A"][0])
 	}
 
@@ -161,14 +161,14 @@ false and with error validate.ErrUnknownTag.
 Finally, package validator also provides a helper function that can be used
 to validate simple variables/values.
 
-    // valid: true, errs: []
-	valid, errs = validator.Valid(42, "min=10, max=50")
+    	// errs: nil
+	errs = validator.Valid(42, "min=10, max=50")
 
-	// valid: false, errs: [validate.ErrZeroValue]
-	valid, errs = validator.Valid(nil, "nonzero")
+	// errs: [validate.ErrZeroValue]
+	errs = validator.Valid(nil, "nonzero")
 
-	// valid: false, errs: [validate.ErrMin,validate.ErrMax]
-	valid, errs = validator.Valid("hi", "nonzero,min=3,max=2")
+	// errs: [validate.ErrMin,validate.ErrMax]
+	errs = validator.Valid("hi", "nonzero,min=3,max=2")
 
 Custom tag name
 
@@ -238,7 +238,7 @@ You might use two different validators.
 	func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		var u User
 		json.NewDecoder(r.Body).Decode(&user)
-		if valid, _ := creationValidator.Validate(user); !valid {
+		if errs := creationValidator.Validate(user); errs != nil {
 			// the request did not include all of the User
 			// struct fields, so send a http.StatusBadRequest
 			// back or something
@@ -249,7 +249,7 @@ You might use two different validators.
 	func SetNewUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		var u User
 		json.NewDecoder(r.Body).Decode(&user)
-		if valid, _ := chgPwValidator.Validate(user); !valid {
+		if errs := chgPwValidator.Validate(user); errs != nil {
 			// the request did not Username and Password,
 			// so send a http.StatusBadRequest
 			// back or something
