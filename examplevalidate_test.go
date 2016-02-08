@@ -1,18 +1,9 @@
 // Package validator implements value validations
 //
-// Copyright 2014 Roberto Teixeira <robteix@robteix.com>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (C) 2014-2016 Roberto Teixeira <robteix@robteix.com>
+// All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package validator_test
 
@@ -50,28 +41,28 @@ func ExampleValidate() {
 	ve.Address.City = "Some City" // valid
 	ve.Address.Street = ""        // invalid
 
-	valid, errs := validator.Validate(ve)
+	valid, err := validator.Validate(ve)
 	if valid {
 		fmt.Println("Values are valid.")
 	} else {
 		// See if Address was empty
-		if errs["Address.Street"][0] == validator.ErrZeroValue {
+		if validator.IsZeroValue(err, "Address.Street") {
 			fmt.Println("Street cannot be empty.")
 		}
 
-		// Iterate through the list of fields and respective errors
-		fmt.Println("Invalid due to fields:")
-		for f, e := range errs {
-			fmt.Printf("\t - %s (%v)\n", f, e)
+		fmt.Println("Errors found:")
+		for _, f := range validator.ErrorFields(err) {
+			fmt.Printf("\t - %s (%v)\n", f, validator.Errors(err, f))
 		}
 	}
 
 	// Output:
 	// Street cannot be empty.
-	// Invalid due to fields:
+	// Errors found:
 	//	 - Age ([less than min])
 	//	 - Email ([regular expression mismatch])
 	//	 - Address.Street ([zero value])
+
 }
 
 // This example shows how to use the Valid helper
@@ -102,15 +93,15 @@ func ExampleSetTag() {
 	t := T{5}
 	v := validator.NewValidator()
 	v.SetTag("foo")
-	valid, errs := v.Validate(t)
-	fmt.Printf("foo --> valid: %v, errs: %v\n", valid, errs)
+	valid, err := v.Validate(t)
+	fmt.Printf("foo --> valid: %v, err: %v\n", valid, err)
 	v.SetTag("bar")
-	valid, errs = v.Validate(t)
-	fmt.Printf("bar --> valid: %v, errs: %v\n", valid, errs)
+	valid, err = v.Validate(t)
+	fmt.Printf("bar --> valid: %v, err: %v\n", valid, err)
 
 	// Output:
-	// foo --> valid: true, errs: map[]
-	// bar --> valid: false, errs: map[A:[less than min]]
+	// foo --> valid: true, err: <nil>
+	// bar --> valid: false, err: A has error less than min
 }
 
 // This example shows you how to change the tag name
@@ -125,6 +116,6 @@ func ExampleWithTag() {
 	fmt.Printf("bar --> valid: %v, errs: %v\n", valid, errs)
 
 	// Output:
-	// foo --> valid: true, errs: map[]
-	// bar --> valid: false, errs: map[A:[less than min]]
+	// foo --> valid: true, errs: <nil>
+	// bar --> valid: false, errs: A has error less than min
 }

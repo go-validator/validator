@@ -1,18 +1,9 @@
 // Package validator implements value validations
 //
-// Copyright 2014 Roberto Teixeira <robteix@robteix.com>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (C) 2014-2016 Roberto Teixeira <robteix@robteix.com>
+// All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package validator_test
 
@@ -20,7 +11,6 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-
 	"gopkg.in/validator.v2"
 )
 
@@ -58,16 +48,16 @@ func (ms *MySuite) TestValidate(c *C) {
 	t.Sub.C = 0.0
 	t.D = &Simple{10}
 
-	valid, errs := validator.Validate(t)
-	c.Assert(valid, Equals, false, Commentf("errs: %v", errs))
-	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
-	c.Assert(errs["B"], HasError, validator.ErrLen)
-	c.Assert(errs["B"], HasError, validator.ErrMin)
-	c.Assert(errs["B"], HasError, validator.ErrMax)
-	c.Assert(errs["Sub.A"], HasLen, 0)
-	c.Assert(errs["Sub.B"], HasLen, 0)
-	c.Assert(errs["Sub.C"], HasLen, 2)
-	c.Assert(errs["Sub.D"], HasError, validator.ErrZeroValue)
+	valid, err := validator.Validate(t)
+	c.Assert(valid, Equals, false, Commentf("err: %v", err))
+	c.Assert(validator.IsZeroValue(err, "A"), Equals, true)
+	c.Assert(validator.Errors(err, "B"), HasLen, 3)
+	c.Assert(validator.IsMin(err, "B"), Equals, true)
+	c.Assert(validator.IsMax(err, "B"), Equals, true)
+	c.Assert(validator.Errors(err, "Sub.A"), HasLen, 0)
+	c.Assert(validator.Errors(err, "Sub.B"), HasLen, 0)
+	c.Assert(validator.Errors(err, "Sub.C"), HasLen, 2)
+	c.Assert(validator.IsZeroValue(err, "Sub.D"), Equals, true)
 }
 
 func (ms *MySuite) TestValidSlice(c *C) {
@@ -187,10 +177,10 @@ func (ms *MySuite) TestUnknownTag(c *C) {
 		A int `validate:"foo"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
+	valid, err := validator.Validate(t)
 	c.Assert(valid, Equals, false)
-	c.Assert(errs, HasLen, 1)
-	c.Assert(errs["A"], HasError, validator.ErrUnknownTag)
+	c.Assert(validator.Errors(err, "A"), HasLen, 1)
+	c.Assert(validator.IsUnknownTag(err, "A"), Equals, true)
 }
 
 func (ms *MySuite) TestUnsupported(c *C) {
@@ -199,11 +189,10 @@ func (ms *MySuite) TestUnsupported(c *C) {
 		B float64 `validate:"regexp=.*"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
+	valid, err := validator.Validate(t)
 	c.Assert(valid, Equals, false)
-	c.Assert(errs, HasLen, 2)
-	c.Assert(errs["A"], HasError, validator.ErrUnsupported)
-	c.Assert(errs["B"], HasError, validator.ErrUnsupported)
+	c.Assert(validator.IsUnsupported(err, "A"), Equals, true)
+	c.Assert(validator.IsUnsupported(err, "B"), Equals, true)
 }
 
 func (ms *MySuite) TestBadParameter(c *C) {
@@ -213,12 +202,11 @@ func (ms *MySuite) TestBadParameter(c *C) {
 		C string `validate:"max=foo"`
 	}
 	t := test{}
-	valid, errs := validator.Validate(t)
+	valid, err := validator.Validate(t)
 	c.Assert(valid, Equals, false)
-	c.Assert(errs, HasLen, 3)
-	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
-	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
-	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+	c.Assert(validator.IsBadParameter(err, "A"), Equals, true)
+	c.Assert(validator.IsBadParameter(err, "B"), Equals, true)
+	c.Assert(validator.IsBadParameter(err, "C"), Equals, true)
 }
 
 type hasErrorChecker struct {

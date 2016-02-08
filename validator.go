@@ -1,18 +1,9 @@
 // Package validator implements value validations
 //
-// Copyright 2014 Roberto Teixeira <robteix@robteix.com>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (C) 2014-2016 Roberto Teixeira <robteix@robteix.com>
+// All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package validator
 
@@ -21,36 +12,6 @@ import (
 	"errors"
 	"reflect"
 	"strings"
-)
-
-var (
-	// ErrZeroValue is the error returned when variable has zero valud
-	// and nonzero was specified
-	ErrZeroValue = errors.New("zero value")
-	// ErrMin is the error returned when variable is less than mininum
-	// value specified
-	ErrMin = errors.New("less than min")
-	// ErrMax is the error returned when variable is more than
-	// maximum specified
-	ErrMax = errors.New("greater than max")
-	// ErrLen is the error returned when length is not equal to
-	// param specified
-	ErrLen = errors.New("invalid length")
-	// ErrRegexp is the error returned when the value does not
-	// match the provided regular expression parameter
-	ErrRegexp = errors.New("regular expression mismatch")
-	// ErrUnsupported is the error error returned when a validation rule
-	// is used with an unsupported variable type
-	ErrUnsupported = errors.New("unsupported type")
-	// ErrBadParameter is the error returned when an invalid parameter
-	// is provided to a validation rule (e.g. a string where an int was
-	// expected (max=foo,len=bar) or missing a parameter when one is required (len=))
-	ErrBadParameter = errors.New("bad parameter")
-	// ErrUnknownTag is the error returned when an unknown tag is found
-	ErrUnknownTag = errors.New("unknown tag")
-	// ErrInvalid is the error returned when variable is invalid
-	// (normally a nil pointer)
-	ErrInvalid = errors.New("invalid value")
 )
 
 // ValidationFunc is a function that receives the value of a
@@ -143,27 +104,25 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func Validate(v interface{}) (bool, map[string][]error) {
+func Validate(v interface{}) (bool, error) {
 	return defaultValidator.Validate(v)
 }
 
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
+func (mv *Validator) Validate(v interface{}) (bool, error) {
 	sv := reflect.ValueOf(v)
 	st := reflect.TypeOf(v)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return mv.Validate(sv.Elem().Interface())
 	}
 	if sv.Kind() != reflect.Struct {
-		return false, map[string][]error{
-			"": []error{ErrUnsupported},
-		}
+		return false, ErrUnsupported
 	}
 
 	nfields := sv.NumField()
-	m := make(map[string][]error)
+	verr := newError()
 	for i := 0; i < nfields; i++ {
 		f := sv.Field(i)
 		// deal with pointers
@@ -181,25 +140,27 @@ func (mv *Validator) Validate(v interface{}) (bool, map[string][]error) {
 			continue
 		}
 		fname := st.Field(i).Name
-		var errs []error
 		switch f.Kind() {
 		case reflect.Struct:
-			_, e := mv.Validate(f.Interface())
-			if len(e) > 0 {
-				for j, k := range e {
-					m[fname+"."+j] = k
+			_, errs := mv.Validate(f.Interface())
+			if e, ok := errs.(*Error); ok {
+				for k, v := range e.errs {
+					verr.errs[fname+"."+k] = v
 				}
 			}
 
 		default:
-			_, errs = mv.Valid(f.Interface(), tag)
+			_, errs := mv.Valid(f.Interface(), tag)
+			if len(errs) > 0 {
+				verr.errs[fname] = errs
+			}
 		}
 
-		if len(errs) > 0 {
-			m[st.Field(i).Name] = errs
-		}
 	}
-	return len(m) == 0, m
+	if len(verr.errs) > 0 {
+		return false, verr
+	}
+	return true, nil
 }
 
 // Valid validates a value based on the provided
