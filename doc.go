@@ -36,7 +36,7 @@ You get the idea. Package validator allows one to define valid values as
 struct tags when defining a new struct type.
 
 	type NewUserRequest struct {
-		Username string `validate:"min=3,max=40,regexp=^[a-zA-Z]$"`
+		Username string `validate:"min=3,max=40,regexp=^[a-zA-Z]*$"`
 		Name string     `validate:"nonzero"`
 		Age int         `validate:"min=18"`
 		Password string `validate:"min=8"`
