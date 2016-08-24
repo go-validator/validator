@@ -158,9 +158,13 @@ func (mv *Validator) WithTag(tag string) *Validator {
 
 // Copy a validator
 func (mv *Validator) copy() *Validator {
+	newFuncs := map[string]ValidationFunc{}
+	for k, f := range mv.validationFuncs {
+		newFuncs[k] = f
+	}
 	return &Validator{
 		tagName:         mv.tagName,
-		validationFuncs: mv.validationFuncs,
+		validationFuncs: newFuncs,
 	}
 }
 

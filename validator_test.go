@@ -17,11 +17,11 @@
 package validator_test
 
 import (
+	"reflect"
 	"testing"
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/validator.v2"
-	"reflect"
 )
 
 func Test(t *testing.T) {
@@ -374,6 +374,27 @@ func (ms *MySuite) TestBadParameter(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["B"], HasError, validator.ErrBadParameter)
 	c.Assert(errs["C"], HasError, validator.ErrBadParameter)
+}
+
+func (ms *MySuite) TestCopy(c *C) {
+	v := validator.NewValidator()
+	// WithTag calls copy, so we just copy the validator with the same tag
+	v2 := v.WithTag("validate")
+	// now we add a custom func only to the second one, it shouldn't get added
+	// to the first
+	v2.SetValidationFunc("custom", func(_ interface{}, _ string) error { return nil })
+	type test struct {
+		A string `validate:"custom"`
+	}
+	err := v2.Validate(test{})
+	c.Assert(err, IsNil)
+
+	err = v.Validate(test{})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["A"], HasError, validator.ErrUnknownTag)
 }
 
 type hasErrorChecker struct {
