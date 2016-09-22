@@ -313,6 +313,20 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 
 	err = validator.Validate(&test6{&test2{}})
 	c.Assert(err, IsNil)
+
+	type test7 struct {
+		A *string `validate:"min=6"`
+		B *int    `validate:"len=7"`
+		C *int    `validate:"min=12"`
+	}
+	s := "aaa"
+	b := 8
+	err = validator.Validate(&test7{&s, &b, nil})
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], HasError, validator.ErrMin)
+	c.Assert(errs["B"], HasError, validator.ErrLen)
+	c.Assert(errs["C"], Not(HasError), validator.ErrMin)
 }
 
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {

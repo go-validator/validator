@@ -62,6 +62,12 @@ func nonzero(v interface{}, param string) error {
 func length(v interface{}, param string) error {
 	st := reflect.ValueOf(v)
 	valid := true
+	if st.Kind() == reflect.Ptr {
+		if st.IsNil() {
+			return nil
+		}
+		st = st.Elem()
+	}
 	switch st.Kind() {
 	case reflect.String:
 		p, err := asInt(param)
@@ -109,6 +115,12 @@ func length(v interface{}, param string) error {
 func min(v interface{}, param string) error {
 	st := reflect.ValueOf(v)
 	invalid := false
+	if st.Kind() == reflect.Ptr {
+		if st.IsNil() {
+			return nil
+		}
+		st = st.Elem()
+	}
 	switch st.Kind() {
 	case reflect.String:
 		p, err := asInt(param)
@@ -156,6 +168,12 @@ func min(v interface{}, param string) error {
 func max(v interface{}, param string) error {
 	st := reflect.ValueOf(v)
 	var invalid bool
+	if st.Kind() == reflect.Ptr {
+		if st.IsNil() {
+			return nil
+		}
+		st = st.Elem()
+	}
 	switch st.Kind() {
 	case reflect.String:
 		p, err := asInt(param)
@@ -201,7 +219,14 @@ func max(v interface{}, param string) error {
 func regex(v interface{}, param string) error {
 	s, ok := v.(string)
 	if !ok {
-		return ErrUnsupported
+		sptr, ok := v.(*string)
+		if !ok {
+			return ErrUnsupported
+		}
+		if sptr == nil {
+			return nil
+		}
+		s = *sptr
 	}
 
 	re, err := regexp.Compile(param)
