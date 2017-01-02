@@ -344,6 +344,76 @@ func (ms *MySuite) TestUnknownTag(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrUnknownTag)
 }
 
+func (ms *MySuite) TestValidateStructWithSlice(c *C) {
+	type test2 struct {
+		Num    int    `validate:"max=2"`
+		String string `validate:"nonzero"`
+	}
+
+	type test struct {
+		Slices []test2 `validate:"len=1"`
+	}
+
+	t := test{
+		Slices: []test2{{
+			Num:    6,
+			String: "foo",
+		}},
+	}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["Slices[0].Num"], HasError, validator.ErrMax)
+	c.Assert(errs["Slices[0].String"], IsNil) // sanity check
+}
+
+func (ms *MySuite) TestValidateStructWithNestedSlice(c *C) {
+	type test2 struct {
+		Num int `validate:"max=2"`
+	}
+
+	type test struct {
+		Slices [][]test2
+	}
+
+	t := test{
+		Slices: [][]test2{{{Num: 6}}},
+	}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["Slices[0][0].Num"], HasError, validator.ErrMax)
+}
+
+func (ms *MySuite) TestValidateStructWithMap(c *C) {
+	type test2 struct {
+		Num int `validate:"max=2"`
+	}
+
+	type test struct {
+		Map          map[string]test2
+		StructKeyMap map[test2]test2
+	}
+
+	t := test{
+		Map: map[string]test2{
+			"hello": {Num: 6},
+		},
+		StructKeyMap: map[test2]test2{
+			{Num: 3}: {Num: 1},
+		},
+	}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+
+	c.Assert(errs["Map[hello](value).Num"], HasError, validator.ErrMax)
+	c.Assert(errs["StructKeyMap[{Num:3}](key).Num"], HasError, validator.ErrMax)
+}
+
 func (ms *MySuite) TestUnsupported(c *C) {
 	type test struct {
 		A int     `validate:"regexp=a.*b"`

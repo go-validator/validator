@@ -239,22 +239,40 @@ func (mv *Validator) Validate(v interface{}) error {
 				}
 			}
 		}
-		if f.Kind() == reflect.Struct || f.Kind() == reflect.Interface {
-			e := mv.Validate(f.Interface())
-			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-				for j, k := range e {
-					m[fname+"."+j] = k
-				}
-			}
-		}
+
+		mv.deepValidateCollection(f, fname, m) // no-op if field is not a struct, interface, array, slice or map
+
 		if len(errs) > 0 {
 			m[st.Field(i).Name] = errs
 		}
 	}
+
 	if len(m) > 0 {
 		return m
 	}
 	return nil
+}
+
+func (mv *Validator) deepValidateCollection(f reflect.Value, fname string, m ErrorMap) {
+	switch f.Kind() {
+	case reflect.Struct, reflect.Interface:
+		e := mv.Validate(f.Interface())
+		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
+			for j, k := range e {
+				m[fname+"."+j] = k
+			}
+		}
+	case reflect.Array, reflect.Slice:
+		for i := 0; i < f.Len(); i++ {
+			mv.deepValidateCollection(f.Index(i), fmt.Sprintf("%s[%d]", fname, i), m)
+		}
+	case reflect.Map:
+		for _, key := range f.MapKeys() {
+			mv.deepValidateCollection(key, fmt.Sprintf("%s[%+v](key)", fname, key.Interface()), m) // validate the map key
+			value := f.MapIndex(key)
+			mv.deepValidateCollection(value, fmt.Sprintf("%s[%+v](value)", fname, key.Interface()), m)
+		}
+	}
 }
 
 // Valid validates a value based on the provided
