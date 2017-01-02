@@ -213,6 +213,11 @@ func (mv *Validator) Validate(v interface{}) error {
 	nfields := sv.NumField()
 	m := make(ErrorMap)
 	for i := 0; i < nfields; i++ {
+		fname := st.Field(i).Name
+		if !unicode.IsUpper(rune(fname[0])) {
+			continue
+		}
+
 		f := sv.Field(i)
 		// deal with pointers
 		for f.Kind() == reflect.Ptr && !f.IsNil() {
@@ -222,7 +227,6 @@ func (mv *Validator) Validate(v interface{}) error {
 		if tag == "-" {
 			continue
 		}
-		fname := st.Field(i).Name
 		var errs ErrorArray
 
 		if tag != "" {
@@ -236,9 +240,6 @@ func (mv *Validator) Validate(v interface{}) error {
 			}
 		}
 		if f.Kind() == reflect.Struct || f.Kind() == reflect.Interface {
-			if !unicode.IsUpper(rune(fname[0])) {
-				continue
-			}
 			e := mv.Validate(f.Interface())
 			if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 				for j, k := range e {
