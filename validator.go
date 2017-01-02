@@ -255,7 +255,7 @@ func (mv *Validator) Validate(v interface{}) error {
 
 func (mv *Validator) deepValidateCollection(f reflect.Value, fname string, m ErrorMap) {
 	switch f.Kind() {
-	case reflect.Struct, reflect.Interface:
+	case reflect.Struct, reflect.Interface, reflect.Ptr:
 		e := mv.Validate(f.Interface())
 		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 			for j, k := range e {
