@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -327,11 +328,27 @@ type tag struct {
 	Param string         // parameter to send to the validation function
 }
 
+// separate by no escaped commas
+var sepPattern *regexp.Regexp = regexp.MustCompile(`((?:^|[^\\])(?:\\\\)*),`)
+
+func splitUnescapedComma(str string) []string {
+	ret := []string{}
+	indexes := sepPattern.FindAllStringIndex(str, -1)
+	last := 0
+	for _, is := range indexes {
+		ret = append(ret, str[last:is[1]-1])
+		last = is[1]
+	}
+	ret = append(ret, str[last:])
+	return ret
+}
+
 // parseTags parses all individual tags found within a struct tag.
 func (mv *Validator) parseTags(t string) ([]tag, error) {
-	tl := strings.Split(t, ",")
+	tl := splitUnescapedComma(t)
 	tags := make([]tag, 0, len(tl))
 	for _, i := range tl {
+		i = strings.Replace(i, `\,`, ",", -1)
 		tg := tag{}
 		v := strings.SplitN(i, "=", 2)
 		tg.Name = strings.Trim(v[0], " ")
