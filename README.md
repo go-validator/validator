@@ -42,7 +42,11 @@ if errs := validator.Validate(nur); errs != nil {
 
 Builtin validators
 
-Here is the list of validators buildin in the package.
+Here is the list of validators buildin in the package. Validators buildin
+will check the element pointed to if the value to check is a pointer. 
+The `nil` pointer is treated as a valid value by validators buildin other
+than `nonzero`, so you should to use `nonzero` if you don't want to 
+accept a `nil` pointer.
 
 ```
 len
