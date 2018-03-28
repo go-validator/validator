@@ -50,7 +50,7 @@ accept a `nil` pointer.
 
 ```
 len
-	For numeric numbers, max will simply make sure that the
+	For numeric numbers, len will simply make sure that the
 	value is equal to the parameter given. For strings, it
 	checks that the string length is exactly that number of
 	characters. For slices,	arrays, and maps, validates the
