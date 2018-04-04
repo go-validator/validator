@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"unicode/utf8"
 )
 
 // nonzero tests whether a variable value non-zero
@@ -29,7 +30,7 @@ func nonzero(v interface{}, param string) error {
 	valid := true
 	switch st.Kind() {
 	case reflect.String:
-		valid = len(st.String()) != 0
+		valid = utf8.RuneCountInString(st.String()) != 0
 	case reflect.Ptr, reflect.Interface:
 		valid = !st.IsNil()
 	case reflect.Slice, reflect.Map, reflect.Array:
@@ -74,7 +75,7 @@ func length(v interface{}, param string) error {
 		if err != nil {
 			return ErrBadParameter
 		}
-		valid = int64(len(st.String())) == p
+		valid = int64(utf8.RuneCountInString(st.String())) == p
 	case reflect.Slice, reflect.Map, reflect.Array:
 		p, err := asInt(param)
 		if err != nil {
@@ -127,7 +128,7 @@ func min(v interface{}, param string) error {
 		if err != nil {
 			return ErrBadParameter
 		}
-		invalid = int64(len(st.String())) < p
+		invalid = int64(utf8.RuneCountInString(st.String())) < p
 	case reflect.Slice, reflect.Map, reflect.Array:
 		p, err := asInt(param)
 		if err != nil {
@@ -180,7 +181,7 @@ func max(v interface{}, param string) error {
 		if err != nil {
 			return ErrBadParameter
 		}
-		invalid = int64(len(st.String())) > p
+		invalid = int64(utf8.RuneCountInString(st.String())) > p
 	case reflect.Slice, reflect.Map, reflect.Array:
 		p, err := asInt(param)
 		if err != nil {
