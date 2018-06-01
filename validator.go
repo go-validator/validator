@@ -77,27 +77,28 @@ var (
 type ErrorMap map[string]ErrorArray
 
 // ErrorMap implements the Error interface so we can check error against nil.
-// The returned error is if existent the first error which was added to the map.
+// The returned error is any existing errors within the map
 func (err ErrorMap) Error() string {
+	var str strings.Builder
 	for k, errs := range err {
 		if len(errs) > 0 {
-			return fmt.Sprintf("%s: %s", k, errs.Error())
+			str.WriteString(fmt.Sprintf("%s: %s \n", k, errs.Error()))
 		}
 	}
-
-	return ""
+	return str.String()
 }
 
 // ErrorArray is a slice of errors returned by the Validate function.
 type ErrorArray []error
 
-// ErrorArray implements the Error interface and returns the first error as
-// string if existent.
+// ErrorArray implements the Error interface and returns all errors as a string
+// if existant
 func (err ErrorArray) Error() string {
-	if len(err) > 0 {
-		return err[0].Error()
+	var str strings.Builder
+	for _, errs := range err {
+		str.WriteString(fmt.Sprintf("%s ", errs.Error()))
 	}
-	return ""
+	return str.String()
 }
 
 // ValidationFunc is a function that receives the value of a
