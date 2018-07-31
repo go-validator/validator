@@ -497,6 +497,59 @@ func (ms *MySuite) TestTagEscape(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrRegexp)
 }
 
+func (ms *MySuite) TestEmbeddedFields(c *C) {
+	type baseTest struct {
+		A string `validate:"min=1"`
+	}
+	type test struct {
+		baseTest
+		B string `validate:"min=1"`
+	}
+
+	err := validator.Validate(test{})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["A"], HasError, validator.ErrMin)
+	c.Assert(errs["B"], HasError, validator.ErrMin)
+}
+
+func (ms *MySuite) TestEmbeddedPointerFields(c *C) {
+	type baseTest struct {
+		A string `validate:"min=1"`
+	}
+	type test struct {
+		*baseTest
+		B string `validate:"min=1"`
+	}
+
+	err := validator.Validate(test{baseTest: &baseTest{}})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["A"], HasError, validator.ErrMin)
+	c.Assert(errs["B"], HasError, validator.ErrMin)
+}
+
+func (ms *MySuite) TestEmbeddedNilPointerFields(c *C) {
+	type baseTest struct {
+		A string `validate:"min=1"`
+	}
+	type test struct {
+		*baseTest
+		B string `validate:"min=1"`
+	}
+
+	err := validator.Validate(test{})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["B"], HasError, validator.ErrMin)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
