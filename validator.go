@@ -244,7 +244,11 @@ func (mv *Validator) Validate(v interface{}) error {
 		mv.deepValidateCollection(f, fname, m) // no-op if field is not a struct, interface, array, slice or map
 
 		if len(errs) > 0 {
-			m[st.Field(i).Name] = errs
+			name := st.Field(i).Name
+			if jsonName := parseName(st.Field(i).Tag.Get("json")); jsonName != "" {
+				name = jsonName
+			}
+			m[name] = errs
 		}
 	}
 
@@ -252,6 +256,20 @@ func (mv *Validator) Validate(v interface{}) error {
 		return m
 	}
 	return nil
+}
+
+func parseName(tag string) string {
+	if tag == "" {
+		return ""
+	}
+
+	name := strings.SplitN(tag, ",", 2)[0]
+
+	// if the field as be skipped in json, just return an empty string
+	if name == "-" {
+		return ""
+	}
+	return name
 }
 
 func (mv *Validator) deepValidateCollection(f reflect.Value, fname string, m ErrorMap) {

@@ -497,6 +497,20 @@ func (ms *MySuite) TestTagEscape(c *C) {
 	c.Assert(errs["A"], HasError, validator.ErrRegexp)
 }
 
+func (ms *MySuite) TestJSONTag(c *C) {
+	type test struct {
+		A string `validate:"nonzero" json:"b,omitempty"`
+	}
+
+	var t test
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], IsNil)
+	c.Assert(errs["b"], HasError, validator.ErrZeroValue)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
