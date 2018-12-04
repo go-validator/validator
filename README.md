@@ -1,7 +1,7 @@
-Package validator
+Package Walidator
 ================
 
-Package validator implements variable validations
+Package walidator implements variable validations in struct fields
 
 Installation
 ============
@@ -9,14 +9,14 @@ Installation
 Just use go get.
 
 ```bash
-go get gopkg.in/validator.v2
+go get github.com/heetch/walidator
 ```
 
 And then just import the package into your own code.
 
 ```go
 import (
-	"gopkg.in/validator.v2"
+	"github.com/heetch/walidator
 )
 ```
 
