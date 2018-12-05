@@ -87,6 +87,10 @@ uuid
     Only valid for string types, it will validate the value matches
     the well-known universally unique identifier defined in
     RFC 4122. (Usage: uuid)
+
+required
+    This validates the value is required, that is a pointer is
+    nil. (Usage: required)
 ```
 
 Custom validators

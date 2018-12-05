@@ -71,6 +71,9 @@ var (
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
 	ErrInvalid = TextErr{errors.New("invalid value")}
+	// ErrRequired is the error returned when variable is nil and
+	// required tag was specified
+	ErrRequired = TextErr{errors.New("required value")}
 )
 
 // ErrorMap is a map which contains all errors from validating a struct.
@@ -122,12 +125,13 @@ func NewValidator() *Validator {
 	return &Validator{
 		tagName: "validate",
 		validationFuncs: map[string]ValidationFunc{
-			"nonzero": nonzero,
-			"len":     length,
-			"min":     min,
-			"max":     max,
-			"regexp":  regex,
-			"uuid":    uuid,
+			"nonzero":  nonzero,
+			"len":      length,
+			"min":      min,
+			"max":      max,
+			"regexp":   regex,
+			"uuid":     uuid,
+			"required": required,
 		},
 	}
 }
