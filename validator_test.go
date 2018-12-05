@@ -20,10 +20,11 @@ import (
 	"reflect"
 	"testing"
 
+	validator "github.com/heetch/walidator"
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v2"
 )
 
+// Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
 	TestingT(t)
 }

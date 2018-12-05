@@ -127,6 +127,7 @@ func NewValidator() *Validator {
 			"min":     min,
 			"max":     max,
 			"regexp":  regex,
+			"uuid":    uuid,
 		},
 	}
 }

@@ -42,10 +42,10 @@ if errs := validator.Validate(nur); errs != nil {
 
 Builtin validators
 
-Here is the list of validators buildin in the package. Validators buildin
-will check the element pointed to if the value to check is a pointer. 
-The `nil` pointer is treated as a valid value by validators buildin other
-than `nonzero`, so you should to use `nonzero` if you don't want to 
+Here is the list of validators buildin in the package. Validators builtin
+will check the element pointed to if the value to check is a pointer.
+The `nil` pointer is treated as a valid value by validators builtin other
+than `nonzero`, so you should to use `nonzero` if you don't want to
 accept a `nil` pointer.
 
 ```
@@ -79,9 +79,14 @@ nonzero
 	keys that you care about. (Usage: nonzero)
 
 regexp
-	Only valid for string types, it will validator that the
+	Only valid for string types, it will validate that the
 	value matches the regular expression provided as parameter.
 	(Usage: regexp=^a.*b$)
+
+uuid
+    Only valid for string types, it will validate the value matches
+    the well-known universally unique identifier defined in
+    RFC 4122. (Usage: uuid)
 ```
 
 Custom validators
@@ -174,6 +179,7 @@ License
 =======
 
 Copyright 2014 Roberto Teixeira <robteix@robteix.com>
+Copyright 2018 Heetch
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
