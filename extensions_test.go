@@ -14,12 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validator_test
+package walidator_test
 
 import (
+	"github.com/heetch/walidator"
 	. "gopkg.in/check.v1"
-
-	validator "github.com/heetch/walidator"
 )
 
 type ExtensionSuite struct{}
@@ -32,7 +31,7 @@ func (es *ExtensionSuite) TestUUIDOK(c *C) {
 		"0FCE98AC-1326-4C79-8EBC-94908DA8B034",
 	}
 	for _, s := range cases {
-		err := validator.Valid(s, "uuid")
+		err := walidator.Valid(s, "uuid")
 		c.Assert(err, IsNil)
 	}
 }
@@ -43,12 +42,12 @@ func (es *ExtensionSuite) TestUUIDNOK(c *C) {
 		"0VCE98AC-1326-4C79-8EBC-94908DA8B034",
 	}
 	for _, s := range cases {
-		err := validator.Valid(s, "uuid")
+		err := walidator.Valid(s, "uuid")
 		c.Assert(err, NotNil)
-		errs, ok := err.(validator.ErrorArray)
+		errs, ok := err.(walidator.ErrorArray)
 		c.Assert(ok, Equals, true)
 		c.Assert(errs, HasLen, 1)
-		c.Assert(errs, HasError, validator.ErrRegexp)
+		c.Assert(errs, HasError, walidator.ErrRegexp)
 	}
 }
 
@@ -77,7 +76,7 @@ func (es *ExtensionSuite) TestRequiredOK(c *C) {
 		struct{ Foo int }{23},
 	}
 	for _, s := range cases {
-		err := validator.Valid(s, "required")
+		err := walidator.Valid(s, "required")
 		c.Assert(err, IsNil)
 	}
 }
@@ -93,11 +92,11 @@ func (es *ExtensionSuite) TestRequiredNOK(c *C) {
 		t2.Mer,
 	}
 	for _, s := range cases {
-		err := validator.Valid(s, "required")
+		err := walidator.Valid(s, "required")
 		c.Assert(err, NotNil)
-		errs, ok := err.(validator.ErrorArray)
+		errs, ok := err.(walidator.ErrorArray)
 		c.Assert(ok, Equals, true)
 		c.Assert(errs, HasLen, 1)
-		c.Assert(errs, HasError, validator.ErrRequired)
+		c.Assert(errs, HasError, walidator.ErrRequired)
 	}
 }
