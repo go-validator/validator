@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validator
+package walidator
 
 import (
 	"errors"
@@ -197,7 +197,7 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 }
 
 // Validate validates the fields of a struct based
-// on 'validator' tags and returns errors found indexed
+// on 'validate' tags and returns errors found indexed
 // by the field name.
 func Validate(v interface{}) error {
 	return defaultValidator.Validate(v)
