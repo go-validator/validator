@@ -51,3 +51,53 @@ func (es *ExtensionSuite) TestUUIDNOK(c *C) {
 		c.Assert(errs, HasError, validator.ErrRegexp)
 	}
 }
+
+type Mer interface {
+	M()
+}
+
+type T1 struct{}
+
+func (t *T1) M() {}
+
+type T2 struct {
+	Mer Mer
+}
+
+func (es *ExtensionSuite) TestRequiredOK(c *C) {
+	a := []int{1, 2, 3}
+	cases := []interface{}{
+		"string",
+		a[1:],
+		a,
+		map[string]int{"a": 1, "b": 2},
+		12,
+		2.1,
+		T1{},
+		struct{ Foo int }{23},
+	}
+	for _, s := range cases {
+		err := validator.Valid(s, "required")
+		c.Assert(err, IsNil)
+	}
+}
+
+func (es *ExtensionSuite) TestRequiredNOK(c *C) {
+	var ptr *uint
+	var t1 *T1
+	t2 := T2{}
+	cases := []interface{}{
+		ptr,
+		t1,
+		nil,
+		t2.Mer,
+	}
+	for _, s := range cases {
+		err := validator.Valid(s, "required")
+		c.Assert(err, NotNil)
+		errs, ok := err.(validator.ErrorArray)
+		c.Assert(ok, Equals, true)
+		c.Assert(errs, HasLen, 1)
+		c.Assert(errs, HasError, validator.ErrRequired)
+	}
+}
