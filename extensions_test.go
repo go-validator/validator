@@ -17,6 +17,8 @@
 package walidator_test
 
 import (
+	"fmt"
+
 	"github.com/heetch/walidator"
 	. "gopkg.in/check.v1"
 )
@@ -98,5 +100,99 @@ func (es *ExtensionSuite) TestRequiredNOK(c *C) {
 		c.Assert(ok, Equals, true)
 		c.Assert(errs, HasLen, 1)
 		c.Assert(errs, HasError, walidator.ErrRequired)
+	}
+}
+
+func (es *ExtensionSuite) TestLatitudeOK(c *C) {
+	v := 1.1
+	s := "-12.1"
+	cases := []interface{}{
+		21.0,
+		0.0,
+		-10.212,
+		"12.0",
+		"0.0",
+		"-1.22",
+		&v,
+		&s,
+	}
+	for _, l := range cases {
+		err := walidator.Valid(l, "latitude")
+		c.Assert(err, IsNil)
+	}
+}
+
+func (es *ExtensionSuite) TestLatitudeNOK(c *C) {
+	v := 220.21
+	s := "-2121.1"
+	cases := []interface{}{
+		210.0,
+		-1000.212,
+		"1220",
+		"-190.2",
+		&v,
+		&s,
+	}
+	for _, l := range cases {
+		err := walidator.Valid(l, "latitude")
+		c.Assert(err, NotNil)
+		errs, ok := err.(walidator.ErrorArray)
+		c.Assert(ok, Equals, true)
+		c.Assert(errs, HasLen, 1)
+		switch loc := l.(type) {
+		case *float64:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
+		case *string:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
+		default:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", loc))
+		}
+	}
+}
+
+func (es *ExtensionSuite) TestLongitudeOK(c *C) {
+	v := 1.1
+	s := "-12.1"
+	cases := []interface{}{
+		21.0,
+		0.0,
+		-10.212,
+		"12.0",
+		"0.0",
+		"-1.22",
+		&v,
+		&s,
+	}
+	for _, l := range cases {
+		err := walidator.Valid(l, "latitude")
+		c.Assert(err, IsNil)
+	}
+}
+
+func (es *ExtensionSuite) TestLongitudeNOK(c *C) {
+	v := 220.21
+	s := "-2121.1"
+	cases := []interface{}{
+		210.0,
+		-1000.212,
+		"1220",
+		"-190.2",
+		&v,
+		&s,
+	}
+	for _, l := range cases {
+		err := walidator.Valid(l, "longitude")
+		c.Assert(err, NotNil)
+		errs, ok := err.(walidator.ErrorArray)
+		c.Assert(ok, Equals, true)
+		c.Assert(errs, HasLen, 1)
+		switch loc := l.(type) {
+		case *float64:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
+		case *string:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
+		default:
+			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", loc))
+		}
 	}
 }
