@@ -91,6 +91,14 @@ uuid
 required
     This validates the value is required, that is a pointer is
     nil. (Usage: required)
+
+latitude
+    Valid for float64 and string along with pointers, it will validate
+    the value is a Earth latitude
+
+longitude
+    Valid for float64 and string along with pointers, it will validate
+    the value is a Earth longitude
 ```
 
 Custom validators

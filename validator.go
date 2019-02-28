@@ -125,13 +125,15 @@ func NewValidator() *Validator {
 	return &Validator{
 		tagName: "validate",
 		validationFuncs: map[string]ValidationFunc{
-			"nonzero":  nonzero,
-			"len":      length,
-			"min":      min,
-			"max":      max,
-			"regexp":   regex,
-			"uuid":     uuid,
-			"required": required,
+			"nonzero":   nonzero,
+			"len":       length,
+			"min":       min,
+			"max":       max,
+			"regexp":    regex,
+			"uuid":      uuid,
+			"required":  required,
+			"latitude":  latitude,
+			"longitude": longitude,
 		},
 	}
 }

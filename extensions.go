@@ -16,7 +16,11 @@
 
 package walidator
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+	"strconv"
+)
 
 // required validates the value is not nil for a field, that is, a
 // pointer or an interface, any other case is a valid one as zero
@@ -44,4 +48,86 @@ func required(v interface{}, param string) error {
 func uuid(v interface{}, param string) error {
 	uuidRE := "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 	return regex(v, uuidRE)
+}
+
+// latitude validates if a field is a latitude
+func latitude(i interface{}, param string) error {
+	var validateLatitude = func(v float64) error {
+		if v < -90 || v > 90 {
+			return TextErr{Err: fmt.Errorf("%g is not a valid latitude", v)}
+		}
+		return nil
+	}
+
+	switch v := i.(type) {
+	case *float64:
+		if v == nil {
+			// If you want to validate and empty field, use "nonzero"
+			return nil
+		}
+		return validateLatitude(*v)
+	case float64:
+		return validateLatitude(v)
+	case *string:
+		if v == nil {
+			// If you want to validate and empty field, use "nonzero"
+			return nil
+		}
+		f, err := strconv.ParseFloat(*v, 64)
+		if err != nil {
+			return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
+		}
+
+		return validateLatitude(f)
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
+		}
+
+		return validateLatitude(f)
+	default:
+		return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
+	}
+}
+
+// longitude validates if a field is a longitude
+func longitude(i interface{}, param string) error {
+	var validateLongitude = func(v float64) error {
+		if v < -180 || v > 180 {
+			return TextErr{Err: fmt.Errorf("%g is not a valid longitude", v)}
+		}
+		return nil
+	}
+
+	switch v := i.(type) {
+	case *float64:
+		if v == nil {
+			// If you want to validate and empty field, use "nonzero"
+			return nil
+		}
+		return validateLongitude(*v)
+	case float64:
+		return validateLongitude(v)
+	case *string:
+		if v == nil {
+			// If you want to validate and empty field, use "nonzero"
+			return nil
+		}
+		f, err := strconv.ParseFloat(*v, 64)
+		if err != nil {
+			return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
+		}
+
+		return validateLongitude(f)
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
+		}
+
+		return validateLongitude(f)
+	default:
+		return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
+	}
 }
