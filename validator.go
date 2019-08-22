@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"unicode"
 )
 
 // TextErr is an error that also implements the TextMarshaller interface for
@@ -236,6 +235,11 @@ func (mv *Validator) validateStruct(sv reflect.Value, m ErrorMap) error {
 // If fieldDef refers to an anonymous/embedded field,
 // validateField will walk all of the embedded type's fields and validate them on sv.
 func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflect.Value, m ErrorMap) error {
+	tag := fieldDef.Tag.Get(mv.tagName)
+	if tag == "-" {
+		return nil
+	}
+
 	if fieldDef.Anonymous {
 		// No fields to walk if the embedded type is a pointer and it's nil
 		if fieldDef.Type.Kind() != reflect.Ptr || !fieldVal.IsNil() {
@@ -246,18 +250,14 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 		}
 	}
 
-	fname := fieldDef.Name
-	if !unicode.IsUpper(rune(fname[0])) {
+	// ignore private fields
+	if fieldDef.PkgPath != "" {
 		return nil
 	}
 
 	// deal with pointers
 	for fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
 		fieldVal = fieldVal.Elem()
-	}
-	tag := fieldDef.Tag.Get(mv.tagName)
-	if tag == "-" {
-		return nil
 	}
 	var errs ErrorArray
 
@@ -270,10 +270,11 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 		}
 	}
 
-	mv.deepValidateCollection(fieldVal, fname, m) // no-op if field is not a struct, interface, array, slice or map
+	// no-op if field is not a struct, interface, array, slice or map
+	mv.deepValidateCollection(fieldVal, fieldDef.Name, m)
 
 	if len(errs) > 0 {
-		m[fname] = errs
+		m[fieldDef.Name] = errs
 	}
 	return nil
 }

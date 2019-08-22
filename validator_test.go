@@ -44,8 +44,8 @@ type Impl struct {
 	F string `validate:"len=3"`
 }
 
-func (this *Impl) Foo() string {
-	return this.F
+func (i *Impl) Foo() string {
+	return i.F
 }
 
 type TestStruct struct {
@@ -200,7 +200,7 @@ func (ms *MySuite) TestValidString(c *C) {
 	c.Assert(err, IsNil)
 
 	err = validator.Valid(s, "regexp=^.*[0-9]{5}$")
-	c.Assert(errs, NotNil)
+	c.Assert(err, NotNil)
 
 	err = validator.Valid("", "nonzero,len=3,max=1")
 	c.Assert(err, NotNil)
@@ -513,6 +513,12 @@ func (ms *MySuite) TestEmbeddedFields(c *C) {
 	c.Assert(errs, HasLen, 2)
 	c.Assert(errs["A"], HasError, validator.ErrMin)
 	c.Assert(errs["B"], HasError, validator.ErrMin)
+
+	type test2 struct {
+		baseTest `validate:"-"`
+	}
+	err = validator.Validate(test2{})
+	c.Assert(err, IsNil)
 }
 
 func (ms *MySuite) TestEmbeddedPointerFields(c *C) {
@@ -539,6 +545,15 @@ func (ms *MySuite) TestEmbeddedNilPointerFields(c *C) {
 	}
 	type test struct {
 		*baseTest
+	}
+
+	err := validator.Validate(test{})
+	c.Assert(err, IsNil)
+}
+
+func (ms *MySuite) TestPrivateFields(c *C) {
+	type test struct {
+		b string `validate:"min=1"`
 	}
 
 	err := validator.Validate(test{})
