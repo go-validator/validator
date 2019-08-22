@@ -1,10 +1,8 @@
-Package validator
-================
+# Package validator
 
 Package validator implements variable validations
 
-Installation
-============
+# Installation
 
 Just use go get.
 
@@ -20,8 +18,7 @@ import (
 )
 ```
 
-Usage
-=====
+# Usage
 
 Please see http://godoc.org/gopkg.in/validator.v2 for detailed usage docs.
 A simple example would be.
@@ -43,9 +40,9 @@ if errs := validator.Validate(nur); errs != nil {
 Builtin validators
 
 Here is the list of validators buildin in the package. Validators buildin
-will check the element pointed to if the value to check is a pointer. 
+will check the element pointed to if the value to check is a pointer.
 The `nil` pointer is treated as a valid value by validators buildin other
-than `nonzero`, so you should to use `nonzero` if you don't want to 
+than `nonzero`, so you should to use `nonzero` if you don't want to
 accept a `nil` pointer.
 
 ```
@@ -76,12 +73,18 @@ nonzero
 	string it's "", for pointers is nil, etc.) For structs, it
 	will not check to see if the struct itself has all zero
 	values, instead use a pointer or put nonzero on the struct's
-	keys that you care about. (Usage: nonzero)
+	keys that you care about. For pointers, the pointer's value
+	is used to test for nonzero in addition to the pointer itself
+	not being nil. To just check for not being nil, use `nonnil`.
+	(Usage: nonzero)
 
 regexp
 	Only valid for string types, it will validator that the
 	value matches the regular expression provided as parameter.
 	(Usage: regexp=^a.*b$)
+
+nonnil
+	Validates that the given value is not nil. (Usage: nonnil)
 ```
 
 Custom validators
@@ -150,14 +153,13 @@ barValidator.Validate(t)
 This keeps the default validator's tag clean. Again, please refer to
 godocs for a lot of more examples and different uses.
 
-Pull requests policy
-====================
+# Pull requests policy
 
 tl;dr. Contributions are welcome.
 
 The repository is organized in version branches. Pull requests to, say, the
 `v2` branch that break API compatibility will not be accepted. It is okay to
-break the API in master, *not in the branches*.
+break the API in master, _not in the branches_.
 
 As for validation functions, the preference is to keep the main code simple
 and add most new functions to the validator-contrib repository.
@@ -170,8 +172,7 @@ If you see a case where the functionality of the builtin will change
 significantly, please send a pull request against `master`. We can discuss then
 whether the changes should be incorporated in the version branches as well.
 
-License
-=======
+# License
 
 Copyright 2014 Roberto Teixeira <robteix@robteix.com>
 
