@@ -43,8 +43,8 @@ func (t TextErr) MarshalText() ([]byte, error) {
 }
 
 var (
-	// ErrZeroValue is the error returned when variable has zero valud
-	// and nonzero was specified
+	// ErrZeroValue is the error returned when variable has zero value
+	// and nonzero or nonnil was specified
 	ErrZeroValue = TextErr{errors.New("zero value")}
 	// ErrMin is the error returned when variable is less than mininum
 	// value specified
@@ -126,6 +126,7 @@ func NewValidator() *Validator {
 			"min":     min,
 			"max":     max,
 			"regexp":  regex,
+			"nonnil":  nonnil,
 		},
 	}
 }

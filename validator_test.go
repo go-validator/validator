@@ -318,15 +318,24 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 		A *string `validate:"min=6"`
 		B *int    `validate:"len=7"`
 		C *int    `validate:"min=12"`
+		D *int    `validate:"nonzero"`
+		E *int    `validate:"nonzero"`
+		F *int    `validate:"nonnil"`
+		G *int    `validate:"nonnil"`
 	}
 	s := "aaa"
 	b := 8
-	err = validator.Validate(&test7{&s, &b, nil})
+	e := 0
+	err = validator.Validate(&test7{&s, &b, nil, nil, &e, &e, nil})
 	errs, ok = err.(validator.ErrorMap)
 	c.Assert(ok, Equals, true)
 	c.Assert(errs["A"], HasError, validator.ErrMin)
 	c.Assert(errs["B"], HasError, validator.ErrLen)
-	c.Assert(errs["C"], Not(HasError), validator.ErrMin)
+	c.Assert(errs["C"], IsNil)
+	c.Assert(errs["D"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["E"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["F"], IsNil)
+	c.Assert(errs["G"], HasError, validator.ErrZeroValue)
 }
 
 func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
