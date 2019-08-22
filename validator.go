@@ -203,7 +203,7 @@ func Validate(v interface{}) error {
 // by the field name.
 func (mv *Validator) Validate(v interface{}) error {
 	m := make(ErrorMap)
-	if err := mv.validateValue(v, m); err != nil {
+	if err := mv.validateStruct(reflect.ValueOf(v), m); err != nil {
 		return err
 	}
 	if len(m) > 0 {
@@ -212,15 +212,10 @@ func (mv *Validator) Validate(v interface{}) error {
 	return nil
 }
 
-func (mv *Validator) validateValue(v interface{}, m ErrorMap) error {
-	sv := reflect.ValueOf(v)
-	return mv.validateStruct(sv, m)
-}
-
 func (mv *Validator) validateStruct(sv reflect.Value, m ErrorMap) error {
 	kind := sv.Kind()
 	if kind == reflect.Ptr && !sv.IsNil() {
-		return mv.validateValue(sv.Elem().Interface(), m)
+		return mv.validateStruct(sv.Elem(), m)
 	}
 	if kind != reflect.Struct && kind != reflect.Interface {
 		return ErrUnsupported
@@ -229,7 +224,7 @@ func (mv *Validator) validateStruct(sv reflect.Value, m ErrorMap) error {
 	st := sv.Type()
 	nfields := st.NumField()
 	for i := 0; i < nfields; i++ {
-		if err := mv.validateField(st.Field(i), sv, m); err != nil {
+		if err := mv.validateField(st.Field(i), sv.Field(i), m); err != nil {
 			return err
 		}
 	}
@@ -237,29 +232,18 @@ func (mv *Validator) validateStruct(sv reflect.Value, m ErrorMap) error {
 	return nil
 }
 
-// validateField validates the field of sv (struct value) referred to by fieldDef.
+// validateField validates the field of fieldVal referred to by fieldDef.
 // If fieldDef refers to an anonymous/embedded field,
 // validateField will walk all of the embedded type's fields and validate them on sv.
-func (mv *Validator) validateField(fieldDef reflect.StructField, sv reflect.Value, m ErrorMap) error {
-	fieldVal := sv.FieldByName(fieldDef.Name)
-
+func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflect.Value, m ErrorMap) error {
 	if fieldDef.Anonymous {
 		// No fields to walk if the embedded type is a pointer and it's nil
-		if fieldVal.Type().Kind() == reflect.Ptr && fieldVal.IsNil() {
-			return nil
-		}
-		// deal with an embedded pointer type; we need to get the underlying type's fields.
-		fdType := fieldDef.Type
-		if fdType.Kind() == reflect.Ptr {
-			fdType = fdType.Elem()
-		}
-		for ei := 0; ei < fdType.NumField(); ei++ {
-			efd := fdType.Field(ei)
-			if err := mv.validateField(efd, sv, m); err != nil {
+		if fieldDef.Type.Kind() != reflect.Ptr || !fieldVal.IsNil() {
+			// handle the internal fields before handling the struct itself
+			if err := mv.validateStruct(fieldVal, m); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	fname := fieldDef.Name
