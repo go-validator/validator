@@ -272,7 +272,9 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 	}
 
 	// no-op if field is not a struct, interface, array, slice or map
-	mv.deepValidateCollection(fieldVal, fieldDef.Name, m)
+	mv.deepValidateCollection(fieldVal, m, func() string {
+		return fieldDef.Name
+	})
 
 	if len(errs) > 0 {
 		m[fieldDef.Name] = errs
@@ -280,24 +282,30 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 	return nil
 }
 
-func (mv *Validator) deepValidateCollection(f reflect.Value, fname string, m ErrorMap) {
+func (mv *Validator) deepValidateCollection(f reflect.Value, m ErrorMap, fnameFn func() string) {
 	switch f.Kind() {
 	case reflect.Struct, reflect.Interface, reflect.Ptr:
 		e := mv.Validate(f.Interface())
 		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
 			for j, k := range e {
-				m[fname+"."+j] = k
+				m[fnameFn()+"."+j] = k
 			}
 		}
 	case reflect.Array, reflect.Slice:
 		for i := 0; i < f.Len(); i++ {
-			mv.deepValidateCollection(f.Index(i), fmt.Sprintf("%s[%d]", fname, i), m)
+			mv.deepValidateCollection(f.Index(i), m, func() string {
+				return fmt.Sprintf("%s[%d]", fnameFn(), i)
+			})
 		}
 	case reflect.Map:
 		for _, key := range f.MapKeys() {
-			mv.deepValidateCollection(key, fmt.Sprintf("%s[%+v](key)", fname, key.Interface()), m) // validate the map key
+			mv.deepValidateCollection(key, m, func() string {
+				return fmt.Sprintf("%s[%+v](key)", fnameFn(), key.Interface())
+			}) // validate the map key
 			value := f.MapIndex(key)
-			mv.deepValidateCollection(value, fmt.Sprintf("%s[%+v](value)", fname, key.Interface()), m)
+			mv.deepValidateCollection(value, m, func() string {
+				return fmt.Sprintf("%s[%+v](value)", fnameFn(), key.Interface())
+			})
 		}
 	}
 }
