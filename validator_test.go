@@ -569,6 +569,18 @@ func (ms *MySuite) TestPrivateFields(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (ms *MySuite) TestValidateStructWithByteSliceSlice(c *C) {
+	type test struct {
+		Slices [][]byte `validate:"len=1"`
+	}
+
+	t := test{
+		Slices: [][]byte{[]byte(``)},
+	}
+	err := validator.Validate(t)
+	c.Assert(err, IsNil)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
