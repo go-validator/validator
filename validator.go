@@ -292,10 +292,15 @@ func (mv *Validator) deepValidateCollection(f reflect.Value, m ErrorMap, fnameFn
 			}
 		}
 	case reflect.Array, reflect.Slice:
-		for i := 0; i < f.Len(); i++ {
-			mv.deepValidateCollection(f.Index(i), m, func() string {
-				return fmt.Sprintf("%s[%d]", fnameFn(), i)
-			})
+		// we don't need to loop over every byte in a byte slice so we only end up
+		// looping when the kind is something we care about
+		switch f.Type().Elem().Kind() {
+		case reflect.Struct, reflect.Interface, reflect.Ptr, reflect.Map, reflect.Array, reflect.Slice:
+			for i := 0; i < f.Len(); i++ {
+				mv.deepValidateCollection(f.Index(i), m, func() string {
+					return fmt.Sprintf("%s[%d]", fnameFn(), i)
+				})
+			}
 		}
 	case reflect.Map:
 		for _, key := range f.MapKeys() {
