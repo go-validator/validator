@@ -214,7 +214,7 @@ func (mv *Validator) Validate(v interface{}) error {
 
 func (mv *Validator) validateStruct(sv reflect.Value, m ErrorMap) error {
 	kind := sv.Kind()
-	if kind == reflect.Ptr && !sv.IsNil() {
+	if (kind == reflect.Ptr || kind == reflect.Interface) && !sv.IsNil() {
 		return mv.validateStruct(sv.Elem(), m)
 	}
 	if kind != reflect.Struct && kind != reflect.Interface {
@@ -240,30 +240,19 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 	if tag == "-" {
 		return nil
 	}
-
-	if fieldDef.Anonymous {
-		// No fields to walk if the embedded type is a pointer and it's nil
-		if fieldDef.Type.Kind() != reflect.Ptr || !fieldVal.IsNil() {
-			// handle the internal fields before handling the struct itself
-			if err := mv.validateStruct(fieldVal, m); err != nil {
-				return err
-			}
-		}
+	// deal with pointers
+	for (fieldVal.Kind() == reflect.Ptr || fieldVal.Kind() == reflect.Interface) && !fieldVal.IsNil() {
+		fieldVal = fieldVal.Elem()
 	}
 
-	// ignore private fields
-	if fieldDef.PkgPath != "" {
+	// ignore private structs unless Anonymous
+	if !fieldDef.Anonymous && fieldDef.PkgPath != "" {
 		return nil
 	}
 
-	// deal with pointers
-	for fieldVal.Kind() == reflect.Ptr && !fieldVal.IsNil() {
-		fieldVal = fieldVal.Elem()
-	}
 	var errs ErrorArray
-
 	if tag != "" {
-		err := mv.Valid(fieldVal.Interface(), tag)
+		err := mv.validValue(fieldVal, tag)
 		if errarr, ok := err.(ErrorArray); ok {
 			errs = errarr
 		} else if err != nil {
@@ -284,12 +273,19 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 
 func (mv *Validator) deepValidateCollection(f reflect.Value, m ErrorMap, fnameFn func() string) {
 	switch f.Kind() {
-	case reflect.Struct, reflect.Interface, reflect.Ptr:
-		e := mv.Validate(f.Interface())
-		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-			for j, k := range e {
-				m[fnameFn()+"."+j] = k
-			}
+	case reflect.Interface, reflect.Ptr:
+		if f.IsNil() {
+			return
+		}
+		mv.deepValidateCollection(f.Elem(), m, fnameFn)
+	case reflect.Struct:
+		subm := make(ErrorMap)
+		err := mv.validateStruct(f, subm)
+		if err != nil {
+			m[fnameFn()] = ErrorArray{err}
+		}
+		for j, k := range subm {
+			m[fnameFn()+"."+j] = k
 		}
 	case reflect.Array, reflect.Slice:
 		// we don't need to loop over every byte in a byte slice so we only end up
@@ -328,17 +324,21 @@ func (mv *Validator) Valid(val interface{}, tags string) error {
 		return nil
 	}
 	v := reflect.ValueOf(val)
-	if v.Kind() == reflect.Ptr && !v.IsNil() {
-		return mv.Valid(v.Elem().Interface(), tags)
+	if (v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface) && !v.IsNil() {
+		return mv.validValue(v.Elem(), tags)
 	}
-	var err error
-	switch v.Kind() {
-	case reflect.Invalid:
-		err = mv.validateVar(nil, tags)
-	default:
-		err = mv.validateVar(val, tags)
+	if v.Kind() == reflect.Invalid {
+		return mv.validateVar(nil, tags)
 	}
-	return err
+	return mv.validateVar(val, tags)
+}
+
+// validValue is like Valid but takes a Value instead of an interface
+func (mv *Validator) validValue(v reflect.Value, tags string) error {
+	if v.Kind() == reflect.Invalid {
+		return mv.validateVar(nil, tags)
+	}
+	return mv.validateVar(v.Interface(), tags)
 }
 
 // validateVar validates one single variable
