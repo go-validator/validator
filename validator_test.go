@@ -48,6 +48,14 @@ func (i *Impl) Foo() string {
 	return i.F
 }
 
+type Impl2 struct {
+	F string `validate:"len=3"`
+}
+
+func (i Impl2) Foo() string {
+	return i.F
+}
+
 type TestStruct struct {
 	A   int    `validate:"nonzero"`
 	B   string `validate:"len=8,min=6,max=4"`
@@ -520,7 +528,7 @@ func (ms *MySuite) TestEmbeddedFields(c *C) {
 	errs, ok := err.(validator.ErrorMap)
 	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 2)
-	c.Assert(errs["A"], HasError, validator.ErrMin)
+	c.Assert(errs["baseTest.A"], HasError, validator.ErrMin)
 	c.Assert(errs["B"], HasError, validator.ErrMin)
 
 	type test2 struct {
@@ -544,7 +552,7 @@ func (ms *MySuite) TestEmbeddedPointerFields(c *C) {
 	errs, ok := err.(validator.ErrorMap)
 	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 2)
-	c.Assert(errs["A"], HasError, validator.ErrMin)
+	c.Assert(errs["baseTest.A"], HasError, validator.ErrMin)
 	c.Assert(errs["B"], HasError, validator.ErrMin)
 }
 
@@ -579,6 +587,39 @@ func (ms *MySuite) TestValidateStructWithByteSliceSlice(c *C) {
 	}
 	err := validator.Validate(t)
 	c.Assert(err, IsNil)
+}
+
+func (ms *MySuite) TestEmbeddedInterface(c *C) {
+	type test struct {
+		I
+	}
+
+	err := validator.Validate(test{Impl2{"hello"}})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["I.F"], HasError, validator.ErrLen)
+
+	err = validator.Validate(test{&Impl{"hello"}})
+	c.Assert(err, NotNil)
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["I.F"], HasError, validator.ErrLen)
+
+	err = validator.Validate(test{})
+	c.Assert(err, IsNil)
+
+	type test2 struct {
+		I `validate:"nonnil"`
+	}
+	err = validator.Validate(test2{})
+	c.Assert(err, NotNil)
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["I"], HasError, validator.ErrZeroValue)
 }
 
 type hasErrorChecker struct {
