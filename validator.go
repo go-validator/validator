@@ -70,6 +70,8 @@ var (
 	// ErrInvalid is the error returned when variable is invalid
 	// (normally a nil pointer)
 	ErrInvalid = TextErr{errors.New("invalid value")}
+	// ErrCannotValidate is the error returned when a struct is unexported
+	ErrCannotValidate = TextErr{errors.New("cannot validate unexported struct")}
 )
 
 // ErrorMap is a map which contains all errors from validating a struct.
@@ -252,7 +254,12 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 
 	var errs ErrorArray
 	if tag != "" {
-		err := mv.validValue(fieldVal, tag)
+		var err error
+		if fieldDef.PkgPath != "" {
+			err = ErrCannotValidate
+		} else {
+			err = mv.validValue(fieldVal, tag)
+		}
 		if errarr, ok := err.(ErrorArray); ok {
 			errs = errarr
 		} else if err != nil {
