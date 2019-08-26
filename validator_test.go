@@ -577,6 +577,23 @@ func (ms *MySuite) TestPrivateFields(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (ms *MySuite) TestEmbeddedUnexported(c *C) {
+	type baseTest struct {
+		A string `validate:"min=1"`
+	}
+	type test struct {
+		baseTest `validate:"nonnil"`
+	}
+
+	err := validator.Validate(test{})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 2)
+	c.Assert(errs["baseTest"], HasError, validator.ErrCannotValidate)
+	c.Assert(errs["baseTest.A"], HasError, validator.ErrMin)
+}
+
 func (ms *MySuite) TestValidateStructWithByteSliceSlice(c *C) {
 	type test struct {
 		Slices [][]byte `validate:"len=1"`
