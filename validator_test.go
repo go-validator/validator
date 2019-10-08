@@ -17,6 +17,7 @@
 package validator_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -637,6 +638,19 @@ func (ms *MySuite) TestEmbeddedInterface(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 1)
 	c.Assert(errs["I"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestErrors(c *C) {
+	err := validator.ErrorMap{
+		"foo": validator.ErrorArray{
+			fmt.Errorf("bar"),
+		},
+		"baz": validator.ErrorArray{
+			fmt.Errorf("qux"),
+		},
+	}
+	expected := "foo: bar, baz: qux"
+	c.Assert(expected, Equals, err.Error())
 }
 
 type hasErrorChecker struct {
