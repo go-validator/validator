@@ -17,6 +17,7 @@
 package validator
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"reflect"
@@ -78,27 +79,34 @@ var (
 type ErrorMap map[string]ErrorArray
 
 // ErrorMap implements the Error interface so we can check error against nil.
-// The returned error is if existent the first error which was added to the map.
+// The returned error is all existing errors with the map.
 func (err ErrorMap) Error() string {
+	var b bytes.Buffer
+
 	for k, errs := range err {
 		if len(errs) > 0 {
-			return fmt.Sprintf("%s: %s", k, errs.Error())
+			b.WriteString(fmt.Sprintf("%s: %s ", k, errs.Error()))
 		}
 	}
 
-	return ""
+	// return strings.TrimSuffix(b.String(), ",")
+	return b.String()
 }
 
 // ErrorArray is a slice of errors returned by the Validate function.
 type ErrorArray []error
 
-// ErrorArray implements the Error interface and returns the first error as
-// string if existent.
+// ErrorArray implements the Error interface and returns all the errors comma seprated
+// if errors exist.
 func (err ErrorArray) Error() string {
-	if len(err) > 0 {
-		return err[0].Error()
+	var b bytes.Buffer
+
+	for _, errs := range err {
+		b.WriteString(fmt.Sprintf("%s, ", errs.Error()))
 	}
-	return ""
+
+	errs := b.String()
+	return strings.TrimSuffix(errs, ", ")
 }
 
 // ValidationFunc is a function that receives the value of a
