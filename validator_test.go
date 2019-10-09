@@ -654,12 +654,14 @@ func (ms *MySuite) TestErrors(c *C) {
 	sep := ", "
 	expected := "foo: bar, baz: qux"
 
-	errString := err.Error()
 	expectedParts := strings.Split(expected, sep)
 	sort.Strings(expectedParts)
+
+	errString := err.Error()
 	errStringParts := strings.Split(errString, sep)
 	sort.Strings(errStringParts)
-	c.Assert(expectedParts, Equals, errStringParts)
+
+	c.Assert(expectedParts, DeepEquals, errStringParts)
 }
 
 type hasErrorChecker struct {
