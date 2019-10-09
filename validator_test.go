@@ -19,6 +19,8 @@ package validator_test
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -649,8 +651,15 @@ func (ms *MySuite) TestErrors(c *C) {
 			fmt.Errorf("qux"),
 		},
 	}
+	sep := ", "
 	expected := "foo: bar, baz: qux"
-	c.Assert(expected, Equals, err.Error())
+
+	errString := err.Error()
+	expectedParts := strings.Split(expected, sep)
+	sort.Strings(expectedParts)
+	errStringParts := strings.Split(errString, sep)
+	sort.Strings(errStringParts)
+	c.Assert(expectedParts, Equals, errStringParts)
 }
 
 type hasErrorChecker struct {
