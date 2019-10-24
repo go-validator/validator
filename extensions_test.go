@@ -136,6 +136,7 @@ func (es *ExtensionSuite) TestLatitudeNOK(c *C) {
 	for _, l := range cases {
 		err := walidator.Valid(l, "latitude")
 		c.Assert(err, NotNil)
+		c.Assert(err, FitsTypeOf, walidator.ErrorArray{})
 		errs, ok := err.(walidator.ErrorArray)
 		c.Assert(ok, Equals, true)
 		c.Assert(errs, HasLen, 1)

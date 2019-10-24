@@ -17,6 +17,7 @@
 package walidator_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -255,7 +256,7 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 	// just verifies that a the given val is a struct
 	walidator.SetValidationFunc("struct", func(val interface{}, _ string) error {
 		v := reflect.ValueOf(val)
-		if v.Kind() == reflect.Struct {
+		if v.Kind() == reflect.Struct || v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
 			return nil
 		}
 		return walidator.ErrUnsupported
@@ -512,6 +513,53 @@ func (ms *MySuite) TestJSONTag(c *C) {
 	c.Assert(errs["b"], HasError, walidator.ErrZeroValue)
 }
 
+type tree struct {
+	Val         int `validate:"min=1"`
+	Left, Right *tree
+}
+
+func (ms *MySuite) TestRecursiveType(c *C) {
+	t := &tree{
+		Val: 1,
+		Left: &tree{
+			Val: 2,
+			Right: &tree{
+				Val: 3,
+			},
+		},
+		Right: &tree{
+			Val: 4,
+		},
+	}
+	err := walidator.Validate(t)
+	c.Assert(err, IsNil)
+	t = &tree{
+		Left: &tree{
+			Right: &tree{},
+		},
+		Right: &tree{
+			Val: 4,
+		},
+	}
+	err = walidator.Validate(t)
+	c.Assert(err, NotNil)
+	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
+	data, err := json.MarshalIndent(err, "", "\t")
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, `
+{
+	"Left.Right.Val": [
+		"less than min"
+	],
+	"Left.Val": [
+		"less than min"
+	],
+	"Val": [
+		"less than min"
+	]
+}`[1:])
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
@@ -544,3 +592,34 @@ func (c *hasErrorChecker) Info() *CheckerInfo {
 }
 
 var HasError = &hasErrorChecker{&CheckerInfo{Name: "HasError", Params: []string{"HasError", "expected to contain"}}}
+
+func BenchmarkValidate(b *testing.B) {
+	type t1 struct {
+		ID        string  `json:"id" validate:"nonzero"`
+		State     string  `json:"state" validate:"nonzero"`
+		FooID     string  `json:"foo_id" validate:"nonzero"`
+		UserID    string  `json:"user_id" validate:"nonzero"`
+		Latitude  float64 `json:"origin_latitude" validate:"nonzero"`
+		Longitude float64 `json:"origin_longitude" validate:"nonzero"`
+		XXXID     string  `json:"xxx_id"`
+	}
+	type T2 struct {
+		X *t1 `json:"ride" validate:"nonzero"`
+	}
+	v := &T2{
+		X: &t1{
+			ID:        "hello",
+			State:     "yes",
+			FooID:     "somefoo",
+			UserID:    "someuser",
+			Latitude:  23,
+			Longitude: 45,
+		},
+	}
+	for i := 0; i < b.N; i++ {
+		err := walidator.Validate(v)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
