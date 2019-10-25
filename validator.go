@@ -142,15 +142,15 @@ func NewValidator() *Validator {
 	return &Validator{
 		tagName: "validate",
 		validationFuncs: map[string]tagValidator{
-			"nonzero":   legacyTagValidator(nonzero),
-			"len":       legacyTagValidator(length),
-			"min":       legacyTagValidator(min),
-			"max":       legacyTagValidator(max),
-			"regexp":    legacyTagValidator(regex),
-			"uuid":      legacyTagValidator(uuid),
-			"required":  legacyTagValidator(required),
-			"latitude":  legacyTagValidator(latitude),
-			"longitude": legacyTagValidator(longitude),
+			"nonzero":   nonzero,
+			"len":       concreteTagValidator(elemTagValidator(length)),
+			"min":       concreteTagValidator(elemTagValidator(min)),
+			"max":       concreteTagValidator(elemTagValidator(max)),
+			"regexp":    concreteTagValidator(elemTagValidator(regex)),
+			"uuid":      concreteTagValidator(elemTagValidator(uuid)),
+			"required":  required,
+			"latitude":  concreteTagValidator(elemTagValidator(latitude)),
+			"longitude": concreteTagValidator(elemTagValidator(longitude)),
 		},
 	}
 }
@@ -261,17 +261,21 @@ func Valid(val interface{}, tags string) error {
 	return defaultValidator.Valid(val, tags)
 }
 
+var interfaceVal = reflect.ValueOf(new(interface{})).Elem()
+
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
 func (mv *Validator) Valid(v interface{}, tag string) error {
 	if tag == "-" {
 		return nil
 	}
-	sv := reflect.ValueOf(v)
-	var st reflect.Type
-	if sv.IsValid() {
-		st = sv.Type()
+	// Ensure there's always a value value and type even
+	// when the argument is nil.
+	sv := interfaceVal
+	if v != nil {
+		sv = reflect.ValueOf(v)
 	}
+	st := sv.Type()
 	validate, err := mv.parseTags(tag, st)
 	if err != nil {
 		// unknown tag found, give up.
@@ -492,13 +496,57 @@ type tagValidator func(t reflect.Type, param string) (validationFunc, error)
 func legacyTagValidator(f ValidationFunc) tagValidator {
 	return func(t reflect.Type, param string) (validationFunc, error) {
 		return func(v reflect.Value, state *validateState) {
-			var iv interface{}
-			if v.IsValid() {
-				iv = v.Interface()
-			}
-			if err := f(iv, param); err != nil {
+			if err := f(v.Interface(), param); err != nil {
 				state.error(err)
 			}
+		}, nil
+	}
+}
+
+// concreteTagValidator wraps inner and ensure that it
+// is never passed an interface type.
+func concreteTagValidator(inner tagValidator) tagValidator {
+	// cache caches the resolved validation functions for
+	// interface types.
+	var cache sync.Map
+	return func(t reflect.Type, param string) (validationFunc, error) {
+		if t.Kind() != reflect.Interface {
+			return inner(t, param)
+		}
+		return func(v reflect.Value, state *validateState) {
+			v = v.Elem()
+			if !v.IsValid() {
+				return
+			}
+			t := v.Type()
+			if innerf, ok := cache.Load(t); ok {
+				innerf.(validationFunc)(v, state)
+				return
+			}
+			innerf, err := inner(t, param)
+			if err != nil {
+				innerf = errorValidation(err)
+			}
+			cache.LoadOrStore(t, innerf)
+			innerf(v, state)
+		}, nil
+	}
+}
+
+func elemTagValidator(inner tagValidator) tagValidator {
+	return func(t reflect.Type, param string) (validationFunc, error) {
+		if t.Kind() != reflect.Ptr {
+			return inner(t, param)
+		}
+		innerf, err := inner(t.Elem(), param)
+		if err != nil {
+			return nil, err
+		}
+		return func(v reflect.Value, state *validateState) {
+			if v.IsNil() {
+				return
+			}
+			innerf(v.Elem(), state)
 		}, nil
 	}
 }

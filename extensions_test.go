@@ -28,14 +28,8 @@ type ExtensionSuite struct{}
 var _ = Suite(&ExtensionSuite{})
 
 func (es *ExtensionSuite) TestUUIDOK(c *C) {
-	cases := []string{
-		"6ba7b810-9dad-11d1-80b4-00c04fd430c8",
-		"0FCE98AC-1326-4C79-8EBC-94908DA8B034",
-	}
-	for _, s := range cases {
-		err := walidator.Valid(s, "uuid")
-		c.Assert(err, IsNil)
-	}
+	err := walidator.Valid("6ba7b810-9dad-11d1-80b4-00c04fd430c8", "uuid")
+	c.Assert(err, IsNil)
 }
 
 func (es *ExtensionSuite) TestUUIDNOK(c *C) {
@@ -93,7 +87,8 @@ func (es *ExtensionSuite) TestRequiredNOK(c *C) {
 		nil,
 		t2.Mer,
 	}
-	for _, s := range cases {
+	for i, s := range cases {
+		c.Logf("test %d: %#v", i, s)
 		err := walidator.Valid(s, "required")
 		c.Assert(err, NotNil)
 		errs, ok := err.(walidator.ErrorArray)
@@ -136,7 +131,6 @@ func (es *ExtensionSuite) TestLatitudeNOK(c *C) {
 	for _, l := range cases {
 		err := walidator.Valid(l, "latitude")
 		c.Assert(err, NotNil)
-		c.Assert(err, FitsTypeOf, walidator.ErrorArray{})
 		errs, ok := err.(walidator.ErrorArray)
 		c.Assert(ok, Equals, true)
 		c.Assert(errs, HasLen, 1)

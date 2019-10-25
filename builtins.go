@@ -24,248 +24,193 @@ import (
 
 // nonzero tests whether a variable value non-zero
 // as defined by the golang spec.
-func nonzero(v interface{}, param string) error {
-	st := reflect.ValueOf(v)
-	valid := true
-	switch st.Kind() {
+func nonzero(t reflect.Type, param string) (validationFunc, error) {
+	check := func(ok bool, state *validateState) {
+		if !ok {
+			state.error(ErrZeroValue)
+		}
+	}
+	switch t.Kind() {
 	case reflect.String:
-		valid = len(st.String()) != 0
+		return func(v reflect.Value, state *validateState) {
+			check(len(v.String()) != 0, state)
+		}, nil
 	case reflect.Ptr, reflect.Interface:
-		valid = !st.IsNil()
+		return func(v reflect.Value, state *validateState) {
+			check(!v.IsNil(), state)
+		}, nil
 	case reflect.Slice, reflect.Map, reflect.Array:
-		valid = st.Len() != 0
+		return func(v reflect.Value, state *validateState) {
+			check(v.Len() != 0, state)
+		}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		valid = st.Int() != 0
+		return func(v reflect.Value, state *validateState) {
+			check(v.Int() != 0, state)
+		}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		valid = st.Uint() != 0
+		return func(v reflect.Value, state *validateState) {
+			check(v.Uint() != 0, state)
+		}, nil
 	case reflect.Float32, reflect.Float64:
-		valid = st.Float() != 0
+		return func(v reflect.Value, state *validateState) {
+			// TODO this preserves old behavior but is arguably
+			// incorrect - it should probably error if the value is NaN.
+			check(v.Float() != 0, state)
+		}, nil
 	case reflect.Bool:
-		valid = st.Bool()
-	case reflect.Invalid:
-		valid = false // always invalid
+		return func(v reflect.Value, state *validateState) {
+			check(v.Bool(), state)
+		}, nil
 	case reflect.Struct:
-		valid = true // always valid since only nil pointers are empty
-	default:
-		return ErrUnsupported
+		return okValidation, nil
 	}
-
-	if !valid {
-		return ErrZeroValue
-	}
-	return nil
+	return nil, ErrUnsupported
 }
 
 // length tests whether a variable's length is equal to a given
 // value. For strings it tests the number of characters whereas
 // for maps and slices it tests the number of items.
-func length(v interface{}, param string) error {
-	st := reflect.ValueOf(v)
-	valid := true
-	if st.Kind() == reflect.Ptr {
-		if st.IsNil() {
-			return nil
-		}
-		st = st.Elem()
-	}
-	switch st.Kind() {
-	case reflect.String:
-		p, err := asInt(param)
+func length(t reflect.Type, param string) (validationFunc, error) {
+	switch t.Kind() {
+	case reflect.String, reflect.Slice, reflect.Map, reflect.Array:
+		p, err := strconv.ParseInt(param, 0, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		valid = int64(len(st.String())) == p
-	case reflect.Slice, reflect.Map, reflect.Array:
-		p, err := asInt(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		valid = int64(st.Len()) == p
+		return func(v reflect.Value, state *validateState) {
+			if int64(v.Len()) != p {
+				state.error(ErrLen)
+			}
+		}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		p, err := asInt(param)
+		p, err := strconv.ParseInt(param, 0, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		valid = st.Int() == p
+		return func(v reflect.Value, state *validateState) {
+			if v.Int() != p {
+				state.error(ErrLen)
+			}
+		}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		p, err := asUint(param)
+		p, err := strconv.ParseUint(param, 0, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		valid = st.Uint() == p
+		return func(v reflect.Value, state *validateState) {
+			if v.Uint() != p {
+				state.error(ErrLen)
+			}
+		}, nil
 	case reflect.Float32, reflect.Float64:
-		p, err := asFloat(param)
+		p, err := strconv.ParseFloat(param, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		valid = st.Float() == p
-	default:
-		return ErrUnsupported
+		return func(v reflect.Value, state *validateState) {
+			if v.Float() != p {
+				state.error(ErrLen)
+			}
+		}, nil
 	}
-	if !valid {
-		return ErrLen
-	}
-	return nil
+	return nil, ErrUnsupported
 }
 
 // min tests whether a variable value is larger or equal to a given
 // number. For number types, it's a simple lesser-than test; for
 // strings it tests the number of characters whereas for maps
 // and slices it tests the number of items.
-func min(v interface{}, param string) error {
-	st := reflect.ValueOf(v)
-	invalid := false
-	if st.Kind() == reflect.Ptr {
-		if st.IsNil() {
-			return nil
-		}
-		st = st.Elem()
-	}
-	switch st.Kind() {
-	case reflect.String:
-		p, err := asInt(param)
+func min(t reflect.Type, param string) (validationFunc, error) {
+	switch t.Kind() {
+	case reflect.String, reflect.Slice, reflect.Map, reflect.Array:
+		p, err := strconv.ParseInt(param, 0, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		invalid = int64(len(st.String())) < p
-	case reflect.Slice, reflect.Map, reflect.Array:
-		p, err := asInt(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = int64(st.Len()) < p
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		p, err := asInt(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = st.Int() < p
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		p, err := asUint(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = st.Uint() < p
+		return func(v reflect.Value, state *validateState) {
+			if int64(v.Len()) < p {
+				state.error(ErrMin)
+			}
+		}, nil
 	case reflect.Float32, reflect.Float64:
-		p, err := asFloat(param)
+		p, err := strconv.ParseFloat(param, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		invalid = st.Float() < p
+		return func(v reflect.Value, state *validateState) {
+			if v.Float() < p {
+				state.error(ErrMin)
+			}
+		}, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		p, err := strconv.ParseInt(param, 0, 64)
+		if err != nil {
+			return nil, ErrBadParameter
+		}
+		return func(v reflect.Value, state *validateState) {
+			if v.Int() < p {
+				state.error(ErrMin)
+			}
+		}, nil
 	default:
-		return ErrUnsupported
+		return nil, ErrUnsupported
 	}
-	if invalid {
-		return ErrMin
-	}
-	return nil
 }
 
 // max tests whether a variable value is lesser than a given
 // value. For numbers, it's a simple lesser-than test; for
 // strings it tests the number of characters whereas for maps
 // and slices it tests the number of items.
-func max(v interface{}, param string) error {
-	st := reflect.ValueOf(v)
-	var invalid bool
-	if st.Kind() == reflect.Ptr {
-		if st.IsNil() {
-			return nil
-		}
-		st = st.Elem()
-	}
-	switch st.Kind() {
-	case reflect.String:
-		p, err := asInt(param)
+func max(t reflect.Type, param string) (validationFunc, error) {
+	switch t.Kind() {
+	case reflect.String, reflect.Slice, reflect.Map, reflect.Array:
+		p, err := strconv.ParseInt(param, 0, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		invalid = int64(len(st.String())) > p
-	case reflect.Slice, reflect.Map, reflect.Array:
-		p, err := asInt(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = int64(st.Len()) > p
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		p, err := asInt(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = st.Int() > p
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		p, err := asUint(param)
-		if err != nil {
-			return ErrBadParameter
-		}
-		invalid = st.Uint() > p
+		return func(v reflect.Value, state *validateState) {
+			if int64(v.Len()) > p {
+				state.error(ErrMax)
+			}
+		}, nil
 	case reflect.Float32, reflect.Float64:
-		p, err := asFloat(param)
+		p, err := strconv.ParseFloat(param, 64)
 		if err != nil {
-			return ErrBadParameter
+			return nil, ErrBadParameter
 		}
-		invalid = st.Float() > p
+		return func(v reflect.Value, state *validateState) {
+			if v.Float() > p {
+				state.error(ErrMax)
+			}
+		}, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		p, err := strconv.ParseInt(param, 0, 64)
+		if err != nil {
+			return nil, ErrBadParameter
+		}
+		return func(v reflect.Value, state *validateState) {
+			if v.Int() > p {
+				state.error(ErrMax)
+			}
+		}, nil
 	default:
-		return ErrUnsupported
+		return nil, ErrUnsupported
 	}
-	if invalid {
-		return ErrMax
-	}
-	return nil
 }
 
 // regex is the builtin validation function that checks
 // whether the string variable matches a regular expression
-func regex(v interface{}, param string) error {
-	s, ok := v.(string)
-	if !ok {
-		sptr, ok := v.(*string)
-		if !ok {
-			return ErrUnsupported
-		}
-		if sptr == nil {
-			return nil
-		}
-		s = *sptr
-	}
-
+func regex(t reflect.Type, param string) (validationFunc, error) {
 	re, err := regexp.Compile(param)
 	if err != nil {
-		return ErrBadParameter
+		return nil, ErrBadParameter
 	}
-
-	if !re.MatchString(s) {
-		return ErrRegexp
+	if t != reflect.TypeOf("") {
+		return nil, ErrUnsupported
 	}
-	return nil
-}
-
-// asInt retuns the parameter as a int64
-// or panics if it can't convert
-func asInt(param string) (int64, error) {
-	i, err := strconv.ParseInt(param, 0, 64)
-	if err != nil {
-		return 0, ErrBadParameter
-	}
-	return i, nil
-}
-
-// asUint retuns the parameter as a uint64
-// or panics if it can't convert
-func asUint(param string) (uint64, error) {
-	i, err := strconv.ParseUint(param, 0, 64)
-	if err != nil {
-		return 0, ErrBadParameter
-	}
-	return i, nil
-}
-
-// asFloat retuns the parameter as a float64
-// or panics if it can't convert
-func asFloat(param string) (float64, error) {
-	i, err := strconv.ParseFloat(param, 64)
-	if err != nil {
-		return 0.0, ErrBadParameter
-	}
-	return i, nil
+	return func(v reflect.Value, state *validateState) {
+		if !re.MatchString(v.String()) {
+			state.error(ErrRegexp)
+		}
+	}, nil
 }
