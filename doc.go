@@ -44,8 +44,8 @@ struct tags when defining a new struct type.
 
 Then validating a variable of type NewUserRequest becomes trivial.
 
-	nur := NewUserRequest{Username: "something", ...}
-	if errs := validator.Validate(nur); errs != nil {
+	r := NewUserRequest{Username: "something", ...}
+	if errs := walidator.Validate(r); errs != nil {
 		// do something
 	}
 
@@ -76,9 +76,24 @@ Here is the list of validator functions builtin in the package.
 		is given by the Go spec (e.g. for int it's 0, for string it's "", for
 		pointers is nil, etc.) Usage: nonzero
 
+	required
+		For pointer and interface types, this validates that the value
+		is non-nil.
+
 	regexp
 		Only valid for string types, it will validate that the value matches
 		the regular expression provided as parameter. (Usage: regexp=^a.*b$)
+
+	uuid
+		This validates that the string value is a valid RFC 4122 UUID.
+
+	latitude
+		This validates that a float64 or string value contains a valid
+		geographical latitude value (between -90 and 90 degrees)
+
+	longitude
+		This validates that a float64 or string value contains a valid
+		geographical longitude value (between -180 and 180 degrees).
 
 
 Note that there are no tests to prevent conflicting validator parameters. For
@@ -89,94 +104,93 @@ instance, these fields will never be valid.
 	B string  `validate:"len=10,regexp=^$"
 	...
 
+Multiple validators
+
+You may often need to have a different set of validation
+rules for different situations. The global default validator
+cannot be changed (to avoid global name clashes) but
+you can create custom Validator instances by calling
+walidator.New.
+
+You can add your own custom validation functions to
+a Validator instance and you can also change the struct
+field tag that's recognized from the default "validate" tag.
+
 Custom validation functions
 
-It is possible to define custom validation functions by using SetValidationFunc.
-First, one needs to create a validation function.
+It is possible to add your own custom validation functions with AddValidation.
+Note that the validation function is passed the actual type that will be used
+when validating. This enables it to create a specialized function
+for the type and parameter, and to return an early error when the type is known
+to be incorrect.
 
-	// Very simple validation func
-	func notZZ(v interface{}, param string) error {
-		st := reflect.ValueOf(v)
-		if st.Kind() != reflect.String {
-			return validate.ErrUnsupported
+	// notZZ defines a validation function that checks that
+	// a string value is not "ZZ"
+	func notZZ(t reflect.Type, param string) (walidator.ValidationFunc, error) {
+		if t.Kind() != reflect.String {
+			return nil, fmt.Errorf("unsupported type")
 		}
-		if st.String() == "ZZ" {
-			return errors.New("value cannot be ZZ")
-		}
-		return nil
+		return func(v reflect.Value, r *walidator.ErrorReporter) {
+			if v.String() == "ZZ" {
+				r.Errorf("value cannot be ZZ")
+			}
+		}, nil
 	}
 
 Then one needs to add it to the list of validation funcs and give it a "tag" name.
 
-	validate.SetValidationFunc("notzz", notZZ)
+	v := walidator.New()
+	v.AddValidation("notzz", notZZ)
 
 Then it is possible to use the notzz validation tag. This will print
-"Field A error: value cannot be ZZ"
+"validation error: A: value cannot be ZZ"
 
 	type T struct {
 		A string  `validate:"nonzero,notzz"`
 	}
 	t := T{"ZZ"}
-	if errs := validator.Validate(t); errs != nil {
-		fmt.Printf("Field A error: %s\n", errs["A"][0])
+	if err := v.Validate(t); err != nil {
+		fmt.Printf("validation error: %v\n", err)
 	}
 
-To use parameters, it is very similar.
+If you wish to parameterize the tag, you can use the parameter
+argument to the validator, which holds the string after the "="
+in the struct tag.
 
-	// Very simple validator with parameter
-	func notSomething(v interface{}, param string) error {
-		st := reflect.ValueOf(v)
-		if st.Kind() != reflect.String {
-			return validate.ErrUnsupported
+	// notSomething defines a validation function that checks that
+	// a string value is not equal to its parameter.
+	func notSomething(t reflect.Type, param string) (walidator.ValidationFunc, error) {
+		if t.Kind() != reflect.String {
+			return nil, fmt.Errorf("unsupported type")
 		}
-		if st.String() == param {
-			return errors.New("value cannot be " + param)
-		}
-		return nil
+		return func(v reflect.Value, r *walidator.ErrorReporter) {
+			if v.String() == param {
+				r.Errorf("value cannot be %q", param)
+			}
+		}, nil
 	}
 
-And then the code below should print "Field A error: value cannot be ABC".
+And then the code below should print "validation error: A: value cannot be ABC".
 
-	validator.SetValidationFunc("notsomething", notSomething)
+	v.AddValidation("notsomething", notSomething)
 	type T struct {
 		A string  `validate:"notsomething=ABC"`
 	}
 	t := T{"ABC"}
-	if errs := validator.Validate(t); errs != nil {
-		fmt.Printf("Field A error: %s\n", errs["A"][0])
+	if err := v.Validate(t); err != nil {
+		fmt.Printf("validation error: %v\n", err)
 	}
 
-As well, it is possible to overwrite builtin validation functions.
-
-	validate.SetValidationFunc("min", myMinFunc)
-
-And you can delete a validation function by setting it to nil.
-
-	validate.SetValidationFunc("notzz", nil)
-	validate.SetValidationFunc("nonzero", nil)
-
-Using a non-existing validation func in a field tag will always return
-false and with error validate.ErrUnknownTag.
-
-Finally, package validator also provides a helper function that can be used
-to validate simple variables/values.
-
-    	// errs: nil
-	errs = validator.Valid(42, "min=10, max=50")
-
-	// errs: [validate.ErrZeroValue]
-	errs = validator.Valid(nil, "nonzero")
-
-	// errs: [validate.ErrMin,validate.ErrMax]
-	errs = validator.Valid("hi", "nonzero,min=3,max=2")
+Using an unknown validation func in a field tag will cause Validate to return
+a validation error.
 
 Custom tag name
 
-In case there is a reason why one would not wish to use tag 'validate' (maybe due to
-a conflict with a different package), it is possible to tell the package to use
-a different tag.
+There might be a reason not to use the tag 'validate' (maybe due to
+a conflict with a different package). In this case, you can
+create a new Validator instance that will use a different tag:
 
-	validator.SetTag("valid")
+	v := walidator.New().WithTag("valid")
 
 Then.
 
@@ -184,82 +198,5 @@ Then.
 		A int    `valid:"min=8, max=10"`
 		B string `valid:"nonzero"`
 	}
-
-SetTag is permanent. The new tag name will be used until it is again changed
-with a new call to SetTag. A way to temporarily use a different tag exists.
-
-	validator.WithTag("foo").Validate(t)
-	validator.WithTag("bar").Validate(t)
-	// But this will go back to using 'validate'
-	validator.Validate(t)
-
-Multiple validators
-
-You may often need to have a different set of validation
-rules for different situations. In all the examples above,
-we only used the default validator but you could create a
-new one and set specific rules for it.
-
-For instance, you might use the same struct to decode incoming JSON for a REST API
-but your needs will change when you're using it to, say, create a new instance
-in storage vs. when you need to change something.
-
-	type User struct {
-		Username string `validate:"nonzero"`
-		Name string     `validate:"nonzero"`
-		Age int         `validate:"nonzero"`
-		Password string `validate:"nonzero"`
-	}
-
-Maybe when creating a new user, you need to make sure all values in the struct are filled,
-but then you use the same struct to handle incoming requests to, say, change the password,
-in which case you only need the Username and the Password and don't care for the others.
-You might use two different validators.
-
-	type User struct {
-		Username string `creating:"nonzero" chgpw:"nonzero"`
-		Name string     `creating:"nonzero"`
-		Age int         `creating:"nonzero"`
-		Password string `creating:"nonzero" chgpw:"nonzero"`
-	}
-
-	var (
-		creationValidator = validator.NewValidator()
-		chgPwValidator = validator.NewValidator()
-	)
-
-	func init() {
-		creationValidator.SetTag("creating")
-		chgPwValidator.SetTag("chgpw")
-	}
-
-	...
-
-	func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-		var u User
-		json.NewDecoder(r.Body).Decode(&user)
-		if errs := creationValidator.Validate(user); errs != nil {
-			// the request did not include all of the User
-			// struct fields, so send a http.StatusBadRequest
-			// back or something
-		}
-		// create the new user
-	}
-
-	func SetNewUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
-		var u User
-		json.NewDecoder(r.Body).Decode(&user)
-		if errs := chgPwValidator.Validate(user); errs != nil {
-			// the request did not Username and Password,
-			// so send a http.StatusBadRequest
-			// back or something
-		}
-		// save the new password
-	}
-
-It is also possible to do all of that using only the default validator as long
-as SetTag is always called before calling validator.Validate() or you chain the
-with WithTag().
-
 */
 package walidator
