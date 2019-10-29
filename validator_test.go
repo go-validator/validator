@@ -17,7 +17,10 @@
 package validator_test
 
 import (
+	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -637,6 +640,28 @@ func (ms *MySuite) TestEmbeddedInterface(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(errs, HasLen, 1)
 	c.Assert(errs["I"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestErrors(c *C) {
+	err := validator.ErrorMap{
+		"foo": validator.ErrorArray{
+			fmt.Errorf("bar"),
+		},
+		"baz": validator.ErrorArray{
+			fmt.Errorf("qux"),
+		},
+	}
+	sep := ", "
+	expected := "foo: bar, baz: qux"
+
+	expectedParts := strings.Split(expected, sep)
+	sort.Strings(expectedParts)
+
+	errString := err.Error()
+	errStringParts := strings.Split(errString, sep)
+	sort.Strings(errStringParts)
+
+	c.Assert(expectedParts, DeepEquals, errStringParts)
 }
 
 type hasErrorChecker struct {

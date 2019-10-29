@@ -85,12 +85,11 @@ func (err ErrorMap) Error() string {
 
 	for k, errs := range err {
 		if len(errs) > 0 {
-			b.WriteString(fmt.Sprintf("%s: %s ", k, errs.Error()))
+			b.WriteString(fmt.Sprintf("%s: %s, ", k, errs.Error()))
 		}
 	}
 
-	// return strings.TrimSuffix(b.String(), ",")
-	return b.String()
+	return strings.TrimSuffix(b.String(), ", ")
 }
 
 // ErrorArray is a slice of errors returned by the Validate function.
