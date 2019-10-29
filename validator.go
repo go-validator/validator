@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
-	"unicode"
+	"sync"
 )
 
-// TextErr is an error that also implements the TextMarshaller interface for
+// TextErr is an error that also implements the encoding.TextMarshaler interface for
 // serializing out to various plain text encodings. Packages creating their
 // own custom errors should use TextErr if they're intending to use serializing
 // formats like json, msgpack etc.
@@ -38,7 +39,7 @@ func (t TextErr) Error() string {
 	return t.Err.Error()
 }
 
-// MarshalText implements the TextMarshaller
+// MarshalText implements encoding.TextMarshaler
 func (t TextErr) MarshalText() ([]byte, error) {
 	return []byte(t.Err.Error()), nil
 }
@@ -87,7 +88,6 @@ func (err ErrorMap) Error() string {
 			return fmt.Sprintf("%s: %s", k, errs.Error())
 		}
 	}
-
 	return ""
 }
 
@@ -103,6 +103,21 @@ func (err ErrorArray) Error() string {
 	return ""
 }
 
+// validationFunc is the internal form of a validation function.
+// It validates the given value, adding any validation errors
+// to the validation state.
+type validationFunc func(reflect.Value, *validateState)
+
+// okValidation is the no-op validator - it always succeeds.
+func okValidation(reflect.Value, *validateState) {}
+
+// errorValidation always fails with the given error.
+func errorValidation(err error) validationFunc {
+	return func(_ reflect.Value, state *validateState) {
+		state.error(err)
+	}
+}
+
 // ValidationFunc is a function that receives the value of a
 // field and a parameter used for the respective validation tag.
 type ValidationFunc func(v interface{}, param string) error
@@ -113,7 +128,9 @@ type Validator struct {
 	tagName string
 	// validationFuncs is a map of ValidationFuncs indexed
 	// by their name.
-	validationFuncs map[string]ValidationFunc
+	validationFuncs map[string]tagValidator
+
+	validatorCache sync.Map // map[reflect.Type]validationFunc
 }
 
 // Helper validator so users can use the
@@ -124,16 +141,16 @@ var defaultValidator = NewValidator()
 func NewValidator() *Validator {
 	return &Validator{
 		tagName: "validate",
-		validationFuncs: map[string]ValidationFunc{
-			"nonzero":   nonzero,
-			"len":       length,
-			"min":       min,
-			"max":       max,
-			"regexp":    regex,
-			"uuid":      uuid,
-			"required":  required,
-			"latitude":  latitude,
-			"longitude": longitude,
+		validationFuncs: map[string]tagValidator{
+			"nonzero":   legacyTagValidator(nonzero),
+			"len":       legacyTagValidator(length),
+			"min":       legacyTagValidator(min),
+			"max":       legacyTagValidator(max),
+			"regexp":    legacyTagValidator(regex),
+			"uuid":      legacyTagValidator(uuid),
+			"required":  legacyTagValidator(required),
+			"latitude":  legacyTagValidator(latitude),
+			"longitude": legacyTagValidator(longitude),
 		},
 	}
 }
@@ -146,6 +163,8 @@ func SetTag(tag string) {
 // SetTag allows you to change the tag name used in structs
 func (mv *Validator) SetTag(tag string) {
 	mv.tagName = tag
+	// Setting the tag invalidates the cache.
+	mv.validatorCache = sync.Map{}
 }
 
 // WithTag creates a new Validator with the new tag name. It is
@@ -166,14 +185,14 @@ func (mv *Validator) WithTag(tag string) *Validator {
 
 // Copy a validator
 func (mv *Validator) copy() *Validator {
-	newFuncs := map[string]ValidationFunc{}
-	for k, f := range mv.validationFuncs {
-		newFuncs[k] = f
-	}
-	return &Validator{
+	mv1 := &Validator{
 		tagName:         mv.tagName,
-		validationFuncs: newFuncs,
+		validationFuncs: make(map[string]tagValidator),
 	}
+	for k, f := range mv.validationFuncs {
+		mv1.validationFuncs[k] = f
+	}
+	return mv1
 }
 
 // SetValidationFunc sets the function to be used for a given
@@ -194,7 +213,7 @@ func (mv *Validator) SetValidationFunc(name string, vf ValidationFunc) error {
 		delete(mv.validationFuncs, name)
 		return nil
 	}
-	mv.validationFuncs[name] = vf
+	mv.validationFuncs[name] = legacyTagValidator(vf)
 	return nil
 }
 
@@ -208,97 +227,32 @@ func Validate(v interface{}) error {
 // Validate validates the fields of a struct based
 // on 'validator' tags and returns errors found indexed
 // by the field name.
-func (mv *Validator) Validate(v interface{}) error {
-	sv := reflect.ValueOf(v)
-	st := reflect.TypeOf(v)
-	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
-		return mv.Validate(sv.Elem().Interface())
+func (mv *Validator) Validate(x interface{}) error {
+	sv := reflect.ValueOf(x)
+	validate := mv.typeValidator(sv.Type())
+	// TODO calculate likely size of path and pathStack; or alternatively
+	// we could keep validateState instances around in a sync.Pool
+	// to avoid the allocations.
+	state := &validateState{
+		path:      make([]byte, 0, 20),
+		pathStack: make([]int, 0, 10),
 	}
-	if sv.Kind() != reflect.Struct && sv.Kind() != reflect.Interface {
-		return ErrUnsupported
-	}
-
-	nfields := sv.NumField()
-	m := make(ErrorMap)
-	for i := 0; i < nfields; i++ {
-		fname := st.Field(i).Name
-		if !unicode.IsUpper(rune(fname[0])) {
-			continue
-		}
-
-		f := sv.Field(i)
-		// deal with pointers
-		for f.Kind() == reflect.Ptr && !f.IsNil() {
-			f = f.Elem()
-		}
-		tag := st.Field(i).Tag.Get(mv.tagName)
-		if tag == "-" {
-			continue
-		}
-		var errs ErrorArray
-
-		if tag != "" {
-			err := mv.Valid(f.Interface(), tag)
-			if errors, ok := err.(ErrorArray); ok {
-				errs = errors
-			} else {
-				if err != nil {
-					errs = ErrorArray{err}
-				}
-			}
-		}
-
-		mv.deepValidateCollection(f, fname, m) // no-op if field is not a struct, interface, array, slice or map
-
-		if len(errs) > 0 {
-			name := st.Field(i).Name
-			if jsonName := parseName(st.Field(i).Tag.Get("json")); jsonName != "" {
-				name = jsonName
-			}
-			m[name] = errs
-		}
-	}
-
-	if len(m) > 0 {
-		return m
-	}
-	return nil
+	validate(sv, state)
+	return state.finalError()
 }
 
-func parseName(tag string) string {
-	if tag == "" {
+// jsonFieldName returns the name that the field will be given
+// when marshaled to JSON, or the empty string if
+func jsonFieldName(tag reflect.StructTag) string {
+	jtag := tag.Get("json")
+	if jtag == "" || jtag == "-" {
 		return ""
 	}
-
-	name := strings.SplitN(tag, ",", 2)[0]
-
-	// if the field as be skipped in json, just return an empty string
-	if name == "-" {
-		return ""
+	i := strings.Index(jtag, ",")
+	if i >= 0 {
+		return jtag[0:i]
 	}
-	return name
-}
-
-func (mv *Validator) deepValidateCollection(f reflect.Value, fname string, m ErrorMap) {
-	switch f.Kind() {
-	case reflect.Struct, reflect.Interface, reflect.Ptr:
-		e := mv.Validate(f.Interface())
-		if e, ok := e.(ErrorMap); ok && len(e) > 0 {
-			for j, k := range e {
-				m[fname+"."+j] = k
-			}
-		}
-	case reflect.Array, reflect.Slice:
-		for i := 0; i < f.Len(); i++ {
-			mv.deepValidateCollection(f.Index(i), fmt.Sprintf("%s[%d]", fname, i), m)
-		}
-	case reflect.Map:
-		for _, key := range f.MapKeys() {
-			mv.deepValidateCollection(key, fmt.Sprintf("%s[%+v](key)", fname, key.Interface()), m) // validate the map key
-			value := f.MapIndex(key)
-			mv.deepValidateCollection(value, fmt.Sprintf("%s[%+v](value)", fname, key.Interface()), m)
-		}
-	}
+	return jtag
 }
 
 // Valid validates a value based on the provided
@@ -309,55 +263,179 @@ func Valid(val interface{}, tags string) error {
 
 // Valid validates a value based on the provided
 // tags and returns errors found or nil.
-func (mv *Validator) Valid(val interface{}, tags string) error {
-	if tags == "-" {
+func (mv *Validator) Valid(v interface{}, tag string) error {
+	if tag == "-" {
 		return nil
 	}
-	v := reflect.ValueOf(val)
-	if v.Kind() == reflect.Ptr && !v.IsNil() {
-		return mv.Valid(v.Elem().Interface(), tags)
+	sv := reflect.ValueOf(v)
+	var st reflect.Type
+	if sv.IsValid() {
+		st = sv.Type()
 	}
-	var err error
-	switch v.Kind() {
-	case reflect.Invalid:
-		err = mv.validateVar(nil, tags)
-	default:
-		err = mv.validateVar(val, tags)
-	}
-	return err
-}
-
-// validateVar validates one single variable
-func (mv *Validator) validateVar(v interface{}, tag string) error {
-	tags, err := mv.parseTags(tag)
+	validate, err := mv.parseTags(tag, st)
 	if err != nil {
 		// unknown tag found, give up.
 		return err
 	}
-	errs := make(ErrorArray, 0, len(tags))
-	for _, t := range tags {
-		if err := t.Fn(v, t.Param); err != nil {
-			errs = append(errs, err)
-		}
+	state := &validateState{
+		path:      make([]byte, 0, 20),
+		pathStack: make([]int, 0, 10),
 	}
-	if len(errs) > 0 {
-		return errs
+	validate(sv, state)
+	if err := state.finalError(); err != nil {
+		// For backward compatibility, we're expected to return an ErrorArray here.
+		if _, ok := err.(ErrorArray); ok {
+			return err
+		}
+		return ErrorArray{err}
 	}
 	return nil
 }
 
-// tag represents one of the tag items
-type tag struct {
-	Name  string         // name of the tag
-	Fn    ValidationFunc // validation function to call
-	Param string         // parameter to send to the validation function
+// newTypeValidator returns a validation function that checks values of type t.
+func (mv *Validator) newTypeValidator(t reflect.Type) validationFunc {
+	switch t.Kind() {
+	case reflect.Ptr:
+		elemf := mv.typeValidator(t.Elem())
+		return func(v reflect.Value, state *validateState) {
+			if v.IsNil() {
+				return
+			}
+			elemf(v.Elem(), state)
+		}
+	case reflect.Struct:
+		return mv.newStructValidator(t)
+	case reflect.Array, reflect.Slice:
+		elemf := mv.typeValidator(t.Elem())
+		return func(v reflect.Value, state *validateState) {
+			n := v.Len()
+			for i := 0; i < n; i++ {
+				state.pushPathIndex(i)
+				elemf(v.Index(i), state)
+				state.popPath()
+			}
+		}
+	case reflect.Interface:
+		return func(v reflect.Value, state *validateState) {
+			if v.IsNil() {
+				return
+			}
+			iv := v.Elem()
+			mv.typeValidator(iv.Type())(iv, state)
+		}
+	case reflect.Map:
+		keyf := mv.typeValidator(t.Key())
+		elemf := mv.typeValidator(t.Elem())
+		return func(v reflect.Value, state *validateState) {
+			iter := v.MapRange()
+			for iter.Next() {
+				mk := iter.Key()
+				state.pushPathMapKey(mk)
+				keyf(mk, state)
+				state.popPath()
+				mv := iter.Value()
+				state.pushPathMapVal(mk)
+				elemf(mv, state)
+				state.popPath()
+			}
+		}
+	default:
+		return okValidation
+	}
+}
+
+type field struct {
+	index    []int
+	name     string
+	validate validationFunc
+}
+
+type structValidator struct {
+	fields []field
+}
+
+func (s *structValidator) validate(v reflect.Value, ectx *validateState) {
+	for i := range s.fields {
+		f := &s.fields[i]
+		ectx.pushPathField(f.name)
+		f.validate(v.FieldByIndex(f.index), ectx)
+		ectx.popPath()
+	}
+}
+
+func (mv *Validator) newStructValidator(t reflect.Type) validationFunc {
+	var sv structValidator
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.PkgPath != "" {
+			continue
+		}
+		name := f.Name
+		tag := f.Tag.Get(mv.tagName)
+		if tag == "-" {
+			continue
+		}
+		if jsonName := jsonFieldName(f.Tag); jsonName != "" {
+			name = jsonName
+		}
+		tagValidator, err := mv.parseTags(tag, f.Type)
+		if err != nil {
+			sv.fields = append(sv.fields, field{
+				index:    f.Index,
+				name:     name,
+				validate: errorValidation(err),
+			})
+			continue
+		}
+		fieldValidator := mv.typeValidator(f.Type)
+		sv.fields = append(sv.fields, field{
+			index: f.Index,
+			name:  name,
+			validate: func(v reflect.Value, state *validateState) {
+				tagValidator(v, state)
+				fieldValidator(v, state)
+			},
+		})
+	}
+	return sv.validate
+}
+
+// typeValidator is like newTypeValidator except that it returns
+// a cached validation function if possible.
+func (mv *Validator) typeValidator(t reflect.Type) validationFunc {
+	if vf, ok := mv.validatorCache.Load(t); ok {
+		return vf.(validationFunc)
+	}
+	// Stolen logic from encoding/json...
+	// To deal with recursive types, populate the map with an
+	// indirect func before we build it. This type waits on the
+	// real func (f) to be ready and then calls it. This indirect
+	// func is only used for recursive types.
+	var (
+		wg sync.WaitGroup
+		f  validationFunc
+	)
+	wg.Add(1)
+	fi, loaded := mv.validatorCache.LoadOrStore(t, validationFunc(func(v reflect.Value, state *validateState) {
+		wg.Wait()
+		f(v, state)
+	}))
+	if loaded {
+		return fi.(validationFunc)
+	}
+
+	// Compute the real encoder and replace the indirect func with it.
+	f = mv.newTypeValidator(t)
+	wg.Done()
+	mv.validatorCache.Store(t, f)
+	return f
 }
 
 // separate by no escaped commas
-var sepPattern *regexp.Regexp = regexp.MustCompile(`((?:^|[^\\])(?:\\\\)*),`)
+var sepPattern = regexp.MustCompile(`((?:^|[^\\])(?:\\\\)*),`)
 
 func splitUnescapedComma(str string) []string {
-	ret := []string{}
+	var ret []string
 	indexes := sepPattern.FindAllStringIndex(str, -1)
 	last := 0
 	for _, is := range indexes {
@@ -368,27 +446,135 @@ func splitUnescapedComma(str string) []string {
 	return ret
 }
 
-// parseTags parses all individual tags found within a struct tag.
-func (mv *Validator) parseTags(t string) ([]tag, error) {
+// parseTags returns a validation function that checks the validations
+// implied by the struct tag t that tags a field with the given type.
+func (mv *Validator) parseTags(t string, fieldType reflect.Type) (validationFunc, error) {
+	if t == "" {
+		return okValidation, nil
+	}
 	tl := splitUnescapedComma(t)
-	tags := make([]tag, 0, len(tl))
+	var validators []validationFunc
 	for _, i := range tl {
 		i = strings.Replace(i, `\,`, ",", -1)
-		tg := tag{}
 		v := strings.SplitN(i, "=", 2)
-		tg.Name = strings.Trim(v[0], " ")
-		if tg.Name == "" {
-			return []tag{}, ErrUnknownTag
+		name := strings.Trim(v[0], " ")
+		if name == "" {
+			return nil, ErrUnknownTag
 		}
+		var param string
 		if len(v) > 1 {
-			tg.Param = strings.Trim(v[1], " ")
+			param = strings.Trim(v[1], " ")
 		}
-		var found bool
-		if tg.Fn, found = mv.validationFuncs[tg.Name]; !found {
-			return []tag{}, ErrUnknownTag
+		tvf, ok := mv.validationFuncs[name]
+		if !ok {
+			return nil, ErrUnknownTag
 		}
-		tags = append(tags, tg)
-
+		vf, err := tvf(fieldType, param)
+		if err != nil {
+			return nil, err
+		}
+		validators = append(validators, vf)
 	}
-	return tags, nil
+	if len(validators) == 0 {
+		return okValidation, nil
+	}
+	return func(v reflect.Value, state *validateState) {
+		for _, f := range validators {
+			f(v, state)
+		}
+	}, nil
+}
+
+type tagValidator func(t reflect.Type, param string) (validationFunc, error)
+
+// legacyTagValidator converts from an external ValidationFunc
+// to the internal form.
+func legacyTagValidator(f ValidationFunc) tagValidator {
+	return func(t reflect.Type, param string) (validationFunc, error) {
+		return func(v reflect.Value, state *validateState) {
+			var iv interface{}
+			if v.IsValid() {
+				iv = v.Interface()
+			}
+			if err := f(iv, param); err != nil {
+				state.error(err)
+			}
+		}, nil
+	}
+}
+
+// validateState holds the runtime state maintained when validating
+// a value. It uses a single byte slice for the path to avoid allocations
+// in the frequently used happy path when no errors are created.
+//
+// All calls to the push* methods must be balanced by popPath calls.
+type validateState struct {
+	path      []byte
+	pathStack []int
+	errors    ErrorMap
+}
+
+// finalError returns an error value that includes all the errors
+// added by state.error.
+func (state *validateState) finalError() error {
+	if state.errors == nil {
+		return nil
+	}
+	if len(state.errors) == 1 && len(state.errors[""]) > 0 {
+		errs := state.errors[""]
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return errs
+	}
+	return state.errors
+}
+
+// error adds the given error to the set of errors recorded in state.
+func (state *validateState) error(err error) {
+	name := string(state.path)
+	if state.errors == nil {
+		state.errors = make(ErrorMap)
+	}
+	state.errors[name] = append(state.errors[name], err)
+}
+
+// pushPathField pushes a field name onto the current path.
+func (state *validateState) pushPathField(fieldName string) {
+	state._pushPath()
+	if len(state.path) > 0 {
+		state.path = append(state.path, '.')
+	}
+	state.path = append(state.path, []byte(fieldName)...)
+}
+
+// pushPathField pushes a map key onto the current path.
+func (state *validateState) pushPathMapKey(key reflect.Value) {
+	state._pushPath()
+	state.path = append(state.path, []byte(fmt.Sprintf("[%+v](key)", key))...)
+}
+
+// pushPathField pushes a map value onto the current path.
+func (state *validateState) pushPathMapVal(key reflect.Value) {
+	state._pushPath()
+	state.path = append(state.path, []byte(fmt.Sprintf("[%+v](value)", key))...)
+}
+
+// pushPathField pushes a slice or array index onto the current path.
+func (state *validateState) pushPathIndex(i int) {
+	state._pushPath()
+	state.path = append(state.path, '[')
+	state.path = strconv.AppendInt(state.path, int64(i), 10)
+	state.path = append(state.path, ']')
+}
+
+// popPath undoes the most recent push* call.
+func (state *validateState) popPath() {
+	i := len(state.pathStack) - 1
+	state.path = state.path[0:state.pathStack[i]]
+	state.pathStack = state.pathStack[0:i]
+}
+
+func (state *validateState) _pushPath() {
+	state.pathStack = append(state.pathStack, len(state.path))
 }
