@@ -19,115 +19,91 @@ package walidator
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 )
 
 // required validates the value is not nil for a field, that is, a
 // pointer or an interface, any other case is a valid one as zero
 // value from Go spec
-func required(v interface{}, param string) error {
-	st := reflect.ValueOf(v)
-	var valid bool
-	switch st.Kind() {
+func required(t reflect.Type, param string) (validationFunc, error) {
+	switch t.Kind() {
 	case reflect.Ptr, reflect.Interface:
-		valid = !st.IsNil()
-	case reflect.Invalid:
-		valid = false
+		return func(v reflect.Value, state *validateState) {
+			if v.IsNil() {
+				state.error(ErrRequired)
+			}
+		}, nil
 	case reflect.String, reflect.Slice, reflect.Map, reflect.Array, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64, reflect.Bool, reflect.Struct:
-		valid = true
+		return okValidation, nil
 	default:
-		return ErrUnsupported
+		return nil, ErrUnsupported
 	}
-	if valid {
-		return nil
-	}
-	return ErrRequired
 }
+
+var uuidRE = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 // uuid validates if a string represents a valid UUID (RFC 4122)
-func uuid(v interface{}, param string) error {
-	uuidRE := "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-	return regex(v, uuidRE)
+func uuid(t reflect.Type, param string) (validationFunc, error) {
+	if t != reflect.TypeOf("") {
+		return nil, ErrUnsupported
+	}
+	return func(v reflect.Value, state *validateState) {
+		if !uuidRE.MatchString(v.Interface().(string)) {
+			state.error(ErrRegexp)
+		}
+	}, nil
 }
 
-// latitude validates if a field is a latitude
-func latitude(i interface{}, param string) error {
-	var validateLatitude = func(v float64) error {
-		if v < -90 || v > 90 {
-			return TextErr{Err: fmt.Errorf("%g is not a valid latitude", v)}
+// latitude validates that a field is a latitude
+func latitude(t reflect.Type, param string) (validationFunc, error) {
+	validateLatitude := func(f float64, state *validateState) {
+		if f < -90 || f > 90 {
+			state.error(TextErr{Err: fmt.Errorf("%g is not a valid latitude", f)})
 		}
-		return nil
 	}
 
-	switch v := i.(type) {
-	case *float64:
-		if v == nil {
-			// If you want to validate and empty field, use "nonzero"
-			return nil
-		}
-		return validateLatitude(*v)
-	case float64:
-		return validateLatitude(v)
-	case *string:
-		if v == nil {
-			// If you want to validate and empty field, use "nonzero"
-			return nil
-		}
-		f, err := strconv.ParseFloat(*v, 64)
-		if err != nil {
-			return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
-		}
-
-		return validateLatitude(f)
-	case string:
-		f, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
-		}
-
-		return validateLatitude(f)
+	switch t.Kind() {
+	case reflect.Float64:
+		return func(v reflect.Value, state *validateState) {
+			validateLatitude(v.Float(), state)
+		}, nil
+	case reflect.String:
+		return func(v reflect.Value, state *validateState) {
+			s := v.String()
+			f, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				state.error(TextErr{Err: fmt.Errorf("%g is not a valid latitude", f)})
+			}
+			validateLatitude(f, state)
+		}, nil
 	default:
-		return TextErr{Err: fmt.Errorf("%v is not a valid latitude", v)}
+		return nil, ErrUnsupported
 	}
 }
 
-// longitude validates if a field is a longitude
-func longitude(i interface{}, param string) error {
-	var validateLongitude = func(v float64) error {
-		if v < -180 || v > 180 {
-			return TextErr{Err: fmt.Errorf("%g is not a valid longitude", v)}
+// longitude validates that a field is a longitude
+func longitude(t reflect.Type, param string) (validationFunc, error) {
+	validateLongitude := func(f float64, state *validateState) {
+		if f < -180 || f > 180 {
+			state.error(TextErr{Err: fmt.Errorf("%g is not a valid longitude", f)})
 		}
-		return nil
 	}
-
-	switch v := i.(type) {
-	case *float64:
-		if v == nil {
-			// If you want to validate and empty field, use "nonzero"
-			return nil
-		}
-		return validateLongitude(*v)
-	case float64:
-		return validateLongitude(v)
-	case *string:
-		if v == nil {
-			// If you want to validate and empty field, use "nonzero"
-			return nil
-		}
-		f, err := strconv.ParseFloat(*v, 64)
-		if err != nil {
-			return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
-		}
-
-		return validateLongitude(f)
-	case string:
-		f, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
-		}
-
-		return validateLongitude(f)
+	switch t.Kind() {
+	case reflect.Float64:
+		return func(v reflect.Value, state *validateState) {
+			validateLongitude(v.Float(), state)
+		}, nil
+	case reflect.String:
+		return func(v reflect.Value, state *validateState) {
+			s := v.String()
+			f, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				state.error(TextErr{Err: fmt.Errorf("%g is not a valid latitude", f)})
+			}
+			validateLongitude(f, state)
+		}, nil
 	default:
-		return TextErr{Err: fmt.Errorf("%v is not a valid longitude", v)}
+		return nil, ErrUnsupported
 	}
 }

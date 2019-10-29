@@ -560,6 +560,34 @@ func (ms *MySuite) TestRecursiveType(c *C) {
 }`[1:])
 }
 
+func (ms *MySuite) TestInterfaceField(c *C) {
+	var x struct {
+		X interface{} `validate:"max=1.0"`
+	}
+	x.X = "hello"
+	err := walidator.Validate(x)
+	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
+	err1 := err.(walidator.ErrorMap)
+	c.Assert(err1["X"], ErrorMatches, `bad parameter`)
+
+	// Test the cached path.
+	err = walidator.Validate(x)
+	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
+	err1 = err.(walidator.ErrorMap)
+	c.Assert(err1["X"], ErrorMatches, `bad parameter`)
+
+	// Test that it passes with an appropriate type
+	x.X = 0.3
+	err = walidator.Validate(x)
+	c.Assert(err, Equals, nil)
+
+	// ... and a pointer to that type
+	f := 0.9
+	x.X = &f
+	err = walidator.Validate(x)
+	c.Assert(err, Equals, nil)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
@@ -592,34 +620,3 @@ func (c *hasErrorChecker) Info() *CheckerInfo {
 }
 
 var HasError = &hasErrorChecker{&CheckerInfo{Name: "HasError", Params: []string{"HasError", "expected to contain"}}}
-
-func BenchmarkValidate(b *testing.B) {
-	type t1 struct {
-		ID        string  `json:"id" validate:"nonzero"`
-		State     string  `json:"state" validate:"nonzero"`
-		FooID     string  `json:"foo_id" validate:"nonzero"`
-		UserID    string  `json:"user_id" validate:"nonzero"`
-		Latitude  float64 `json:"origin_latitude" validate:"nonzero"`
-		Longitude float64 `json:"origin_longitude" validate:"nonzero"`
-		XXXID     string  `json:"xxx_id"`
-	}
-	type T2 struct {
-		X *t1 `json:"ride" validate:"nonzero"`
-	}
-	v := &T2{
-		X: &t1{
-			ID:        "hello",
-			State:     "yes",
-			FooID:     "somefoo",
-			UserID:    "someuser",
-			Latitude:  23,
-			Longitude: 45,
-		},
-	}
-	for i := 0; i < b.N; i++ {
-		err := walidator.Validate(v)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
