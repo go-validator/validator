@@ -18,32 +18,31 @@ package walidator_test
 
 import (
 	"fmt"
+	"testing"
 
+	qt "github.com/frankban/quicktest"
 	"github.com/heetch/walidator"
-	. "gopkg.in/check.v1"
 )
 
-type ExtensionSuite struct{}
-
-var _ = Suite(&ExtensionSuite{})
-
-func (es *ExtensionSuite) TestUUIDOK(c *C) {
+func TestUUIDOK(t *testing.T) {
+	c := qt.New(t)
 	err := walidator.Valid("6ba7b810-9dad-11d1-80b4-00c04fd430c8", "uuid")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 }
 
-func (es *ExtensionSuite) TestUUIDNOK(c *C) {
+func TestUUIDNOK(t *testing.T) {
+	c := qt.New(t)
 	cases := []string{
 		"1234",
 		"0VCE98AC-1326-4C79-8EBC-94908DA8B034",
 	}
 	for _, s := range cases {
 		err := walidator.Valid(s, "uuid")
-		c.Assert(err, NotNil)
+		c.Assert(err, qt.Not(qt.Equals), nil)
 		errs, ok := err.(walidator.ErrorArray)
-		c.Assert(ok, Equals, true)
-		c.Assert(errs, HasLen, 1)
-		c.Assert(errs, HasError, walidator.ErrRegexp)
+		c.Assert(ok, qt.Equals, true)
+		c.Assert(errs, qt.HasLen, 1)
+		c.Assert(errs, qt.Contains, walidator.ErrRegexp)
 	}
 }
 
@@ -59,7 +58,8 @@ type T2 struct {
 	Mer Mer
 }
 
-func (es *ExtensionSuite) TestRequiredOK(c *C) {
+func TestRequiredOK(t *testing.T) {
+	c := qt.New(t)
 	a := []int{1, 2, 3}
 	cases := []interface{}{
 		"string",
@@ -73,11 +73,12 @@ func (es *ExtensionSuite) TestRequiredOK(c *C) {
 	}
 	for _, s := range cases {
 		err := walidator.Valid(s, "required")
-		c.Assert(err, IsNil)
+		c.Assert(err, qt.IsNil)
 	}
 }
 
-func (es *ExtensionSuite) TestRequiredNOK(c *C) {
+func TestRequiredNOK(t *testing.T) {
+	c := qt.New(t)
 	var ptr *uint
 	var t1 *T1
 	t2 := T2{}
@@ -90,15 +91,16 @@ func (es *ExtensionSuite) TestRequiredNOK(c *C) {
 	for i, s := range cases {
 		c.Logf("test %d: %#v", i, s)
 		err := walidator.Valid(s, "required")
-		c.Assert(err, NotNil)
+		c.Assert(err, qt.Not(qt.Equals), nil)
 		errs, ok := err.(walidator.ErrorArray)
-		c.Assert(ok, Equals, true)
-		c.Assert(errs, HasLen, 1)
-		c.Assert(errs, HasError, walidator.ErrRequired)
+		c.Assert(ok, qt.Equals, true)
+		c.Assert(errs, qt.HasLen, 1)
+		c.Assert(errs, qt.Contains, walidator.ErrRequired)
 	}
 }
 
-func (es *ExtensionSuite) TestLatitudeOK(c *C) {
+func TestLatitudeOK(t *testing.T) {
+	c := qt.New(t)
 	v := 1.1
 	s := "-12.1"
 	cases := []interface{}{
@@ -113,11 +115,12 @@ func (es *ExtensionSuite) TestLatitudeOK(c *C) {
 	}
 	for _, l := range cases {
 		err := walidator.Valid(l, "latitude")
-		c.Assert(err, IsNil)
+		c.Assert(err, qt.IsNil)
 	}
 }
 
-func (es *ExtensionSuite) TestLatitudeNOK(c *C) {
+func TestLatitudeNOK(t *testing.T) {
+	c := qt.New(t)
 	v := 220.21
 	s := "-2121.1"
 	cases := []interface{}{
@@ -130,22 +133,23 @@ func (es *ExtensionSuite) TestLatitudeNOK(c *C) {
 	}
 	for _, l := range cases {
 		err := walidator.Valid(l, "latitude")
-		c.Assert(err, NotNil)
+		c.Assert(err, qt.Not(qt.Equals), nil)
 		errs, ok := err.(walidator.ErrorArray)
-		c.Assert(ok, Equals, true)
-		c.Assert(errs, HasLen, 1)
+		c.Assert(ok, qt.Equals, true)
+		c.Assert(errs, qt.HasLen, 1)
 		switch loc := l.(type) {
 		case *float64:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
 		case *string:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid latitude", *loc))
 		default:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid latitude", loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid latitude", loc))
 		}
 	}
 }
 
-func (es *ExtensionSuite) TestLongitudeOK(c *C) {
+func TestLongitudeOK(t *testing.T) {
+	c := qt.New(t)
 	v := 1.1
 	s := "-12.1"
 	cases := []interface{}{
@@ -160,11 +164,12 @@ func (es *ExtensionSuite) TestLongitudeOK(c *C) {
 	}
 	for _, l := range cases {
 		err := walidator.Valid(l, "latitude")
-		c.Assert(err, IsNil)
+		c.Assert(err, qt.IsNil)
 	}
 }
 
-func (es *ExtensionSuite) TestLongitudeNOK(c *C) {
+func TestLongitudeNOK(t *testing.T) {
+	c := qt.New(t)
 	v := 220.21
 	s := "-2121.1"
 	cases := []interface{}{
@@ -177,17 +182,17 @@ func (es *ExtensionSuite) TestLongitudeNOK(c *C) {
 	}
 	for _, l := range cases {
 		err := walidator.Valid(l, "longitude")
-		c.Assert(err, NotNil)
+		c.Assert(err, qt.Not(qt.Equals), nil)
 		errs, ok := err.(walidator.ErrorArray)
-		c.Assert(ok, Equals, true)
-		c.Assert(errs, HasLen, 1)
+		c.Assert(ok, qt.Equals, true)
+		c.Assert(errs, qt.HasLen, 1)
 		switch loc := l.(type) {
 		case *float64:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
 		case *string:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid longitude", *loc))
 		default:
-			c.Assert(errs[0].Error(), Equals, fmt.Sprintf("%v is not a valid longitude", loc))
+			c.Assert(errs[0].Error(), qt.Equals, fmt.Sprintf("%v is not a valid longitude", loc))
 		}
 	}
 }
