@@ -233,12 +233,11 @@ func (mv *Validator) Validate(x interface{}) error {
 	// TODO calculate likely size of path and pathStack; or alternatively
 	// we could keep validateState instances around in a sync.Pool
 	// to avoid the allocations.
-	state := &validateState{
-		path:      make([]byte, 0, 20),
-		pathStack: make([]int, 0, 10),
-	}
+	state := getState()
 	validate(sv, state)
-	return state.finalError()
+	err := state.finalError()
+	putState(state)
+	return err
 }
 
 // jsonFieldName returns the name that the field will be given
@@ -281,12 +280,11 @@ func (mv *Validator) Valid(v interface{}, tag string) error {
 		// unknown tag found, give up.
 		return err
 	}
-	state := &validateState{
-		path:      make([]byte, 0, 20),
-		pathStack: make([]int, 0, 10),
-	}
+	state := getState()
 	validate(sv, state)
-	if err := state.finalError(); err != nil {
+	err = state.finalError()
+	putState(state)
+	if err != nil {
 		// For backward compatibility, we're expected to return an ErrorArray here.
 		if _, ok := err.(ErrorArray); ok {
 			return err
@@ -560,6 +558,26 @@ type validateState struct {
 	path      []byte
 	pathStack []int
 	errors    ErrorMap
+}
+
+var statePool sync.Pool
+
+func getState() *validateState {
+	state, ok := statePool.Get().(*validateState)
+	if ok {
+		return state
+	}
+	return &validateState{
+		path:      make([]byte, 0, 20),
+		pathStack: make([]int, 0, 10),
+	}
+}
+
+func putState(state *validateState) {
+	state.path = state.path[:0]
+	state.pathStack = state.pathStack[:0]
+	state.errors = nil
+	statePool.Put(state)
 }
 
 // finalError returns an error value that includes all the errors
