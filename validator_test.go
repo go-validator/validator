@@ -21,18 +21,9 @@ import (
 	"reflect"
 	"testing"
 
+	qt "github.com/frankban/quicktest"
 	"github.com/heetch/walidator"
-	. "gopkg.in/check.v1"
 )
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type MySuite struct{}
-
-var _ = Suite(&MySuite{})
 
 type Simple struct {
 	A int `validate:"min=10"`
@@ -63,78 +54,81 @@ type TestStruct struct {
 	E I       `validate:nonzero`
 }
 
-func (ms *MySuite) TestValidate(c *C) {
-	t := TestStruct{
+func TestValidate(t *testing.T) {
+	c := qt.New(t)
+	v := TestStruct{
 		A: 0,
 		B: "12345",
 	}
-	t.Sub.A = 1
-	t.Sub.B = ""
-	t.Sub.C = 0.0
-	t.D = &Simple{10}
-	t.E = &Impl{"hello"}
+	v.Sub.A = 1
+	v.Sub.B = ""
+	v.Sub.C = 0.0
+	v.D = &Simple{10}
+	v.E = &Impl{"hello"}
 
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A"], HasError, walidator.ErrZeroValue)
-	c.Assert(errs["B"], HasError, walidator.ErrLen)
-	c.Assert(errs["B"], HasError, walidator.ErrMin)
-	c.Assert(errs["B"], HasError, walidator.ErrMax)
-	c.Assert(errs["Sub.A"], HasLen, 0)
-	c.Assert(errs["Sub.B"], HasLen, 0)
-	c.Assert(errs["Sub.C"], HasLen, 2)
-	c.Assert(errs["Sub.D"], HasError, walidator.ErrZeroValue)
-	c.Assert(errs["E.F"], HasError, walidator.ErrLen)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrZeroValue)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrLen)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrMin)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrMax)
+	c.Assert(errs["Sub.A"], qt.HasLen, 0)
+	c.Assert(errs["Sub.B"], qt.HasLen, 0)
+	c.Assert(errs["Sub.C"], qt.HasLen, 2)
+	c.Assert(errs["Sub.D"], qt.Contains, walidator.ErrZeroValue)
+	c.Assert(errs["E.F"], qt.Contains, walidator.ErrLen)
 }
 
-func (ms *MySuite) TestValidSlice(c *C) {
+func TestValidSlice(t *testing.T) {
+	c := qt.New(t)
 	s := make([]int, 0, 10)
 	err := walidator.Valid(s, "nonzero")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrZeroValue)
 
 	for i := 0; i < 10; i++ {
 		s = append(s, i)
 	}
 
 	err = walidator.Valid(s, "min=11,max=5,len=9,nonzero")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrMin)
-	c.Assert(errs, HasError, walidator.ErrMax)
-	c.Assert(errs, HasError, walidator.ErrLen)
-	c.Assert(errs, Not(HasError), walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrMin)
+	c.Assert(errs, qt.Contains, walidator.ErrMax)
+	c.Assert(errs, qt.Contains, walidator.ErrLen)
+	c.Assert(errs, qt.Not(qt.Contains), walidator.ErrZeroValue)
 }
 
-func (ms *MySuite) TestValidMap(c *C) {
+func TestValidMap(t *testing.T) {
+	c := qt.New(t)
 	m := make(map[string]string)
 	err := walidator.Valid(m, "nonzero")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrZeroValue)
 
 	err = walidator.Valid(m, "min=1")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrMin)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrMin)
 
 	m = map[string]string{"A": "a", "B": "a"}
 	err = walidator.Valid(m, "max=1")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrMax)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrMax)
 
 	err = walidator.Valid(m, "min=2, max=5")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	m = map[string]string{
 		"1": "a",
@@ -144,77 +138,81 @@ func (ms *MySuite) TestValidMap(c *C) {
 		"5": "e",
 	}
 	err = walidator.Valid(m, "len=4,min=6,max=1,nonzero")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrLen)
-	c.Assert(errs, HasError, walidator.ErrMin)
-	c.Assert(errs, HasError, walidator.ErrMax)
-	c.Assert(errs, Not(HasError), walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrLen)
+	c.Assert(errs, qt.Contains, walidator.ErrMin)
+	c.Assert(errs, qt.Contains, walidator.ErrMax)
+	c.Assert(errs, qt.Not(qt.Contains), walidator.ErrZeroValue)
 
 }
 
-func (ms *MySuite) TestValidFloat(c *C) {
+func TestValidFloat(t *testing.T) {
+	c := qt.New(t)
 	err := walidator.Valid(12.34, "nonzero")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = walidator.Valid(0.0, "nonzero")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrZeroValue)
 }
 
-func (ms *MySuite) TestValidInt(c *C) {
+func TestValidInt(t *testing.T) {
+	c := qt.New(t)
 	i := 123
 	err := walidator.Valid(i, "nonzero")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = walidator.Valid(i, "min=1")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = walidator.Valid(i, "min=124, max=122")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrMin)
-	c.Assert(errs, HasError, walidator.ErrMax)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrMin)
+	c.Assert(errs, qt.Contains, walidator.ErrMax)
 
 	err = walidator.Valid(i, "max=10")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrMax)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrMax)
 }
 
-func (ms *MySuite) TestValidString(c *C) {
+func TestValidString(t *testing.T) {
+	c := qt.New(t)
 	s := "test1234"
 	err := walidator.Valid(s, "len=8")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = walidator.Valid(s, "len=0")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasError, walidator.ErrLen)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.Contains, walidator.ErrLen)
 
 	err = walidator.Valid(s, "regexp=^[tes]{4}.*")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = walidator.Valid(s, "regexp=^.*[0-9]{5}$")
-	c.Assert(errs, NotNil)
+	c.Assert(errs, qt.Not(qt.IsNil))
 
 	err = walidator.Valid("", "nonzero,len=3,max=1")
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok = err.(walidator.ErrorArray)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasLen, 2)
-	c.Assert(errs, HasError, walidator.ErrZeroValue)
-	c.Assert(errs, HasError, walidator.ErrLen)
-	c.Assert(errs, Not(HasError), walidator.ErrMax)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.HasLen, 2)
+	c.Assert(errs, qt.Contains, walidator.ErrZeroValue)
+	c.Assert(errs, qt.Contains, walidator.ErrLen)
+	c.Assert(errs, qt.Not(qt.Contains), walidator.ErrMax)
 }
 
-func (ms *MySuite) TestValidateStructVar(c *C) {
+func TestValidateStructVar(t *testing.T) {
+	c := qt.New(t)
 	// just verifies that a the given val is a struct
 	walidator.SetValidationFunc("struct", func(val interface{}, _ string) error {
 		v := reflect.ValueOf(val)
@@ -228,7 +226,7 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 		A int
 	}
 	err := walidator.Valid(test{}, "struct")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test2 struct {
 		B int
@@ -238,7 +236,7 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 	}
 
 	err = walidator.Validate(test1{})
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test4 struct {
 		B int `validate:"foo"`
@@ -248,11 +246,12 @@ func (ms *MySuite) TestValidateStructVar(c *C) {
 	}
 	err = walidator.Validate(test3{})
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A.B"], HasError, walidator.ErrUnknownTag)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A.B"], qt.Contains, walidator.ErrUnknownTag)
 }
 
-func (ms *MySuite) TestValidatePointerVar(c *C) {
+func TestValidatePointerVar(t *testing.T) {
+	c := qt.New(t)
 	// just verifies that a the given val is a struct
 	walidator.SetValidationFunc("struct", func(val interface{}, _ string) error {
 		v := reflect.ValueOf(val)
@@ -273,7 +272,7 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 		A int
 	}
 	err := walidator.Valid(&test{}, "struct")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test2 struct {
 		B int
@@ -283,7 +282,7 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 	}
 
 	err = walidator.Validate(&test1{&test2{}})
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test4 struct {
 		B int `validate:"foo"`
@@ -293,28 +292,28 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 	}
 	err = walidator.Validate(&test3{})
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A.B"], HasError, walidator.ErrUnknownTag)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A.B"], qt.Contains, walidator.ErrUnknownTag)
 
 	err = walidator.Valid((*test)(nil), "nil")
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test5 struct {
 		A *test2 `validate:"nil"`
 	}
 	err = walidator.Validate(&test5{})
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test6 struct {
 		A *test2 `validate:"nonzero"`
 	}
 	err = walidator.Validate(&test6{})
 	errs, ok = err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A"], HasError, walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrZeroValue)
 
 	err = walidator.Validate(&test6{&test2{}})
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	type test7 struct {
 		A *string `validate:"min=6"`
@@ -325,13 +324,14 @@ func (ms *MySuite) TestValidatePointerVar(c *C) {
 	b := 8
 	err = walidator.Validate(&test7{&s, &b, nil})
 	errs, ok = err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A"], HasError, walidator.ErrMin)
-	c.Assert(errs["B"], HasError, walidator.ErrLen)
-	c.Assert(errs["C"], Not(HasError), walidator.ErrMin)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrMin)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrLen)
+	c.Assert(errs["C"], qt.Not(qt.Contains), walidator.ErrMin)
 }
 
-func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
+func TestValidateOmittedStructVar(t *testing.T) {
+	c := qt.New(t)
 	type test2 struct {
 		B int `validate:"min=1"`
 	}
@@ -339,28 +339,30 @@ func (ms *MySuite) TestValidateOmittedStructVar(c *C) {
 		A test2 `validate:"-"`
 	}
 
-	t := test1{}
-	err := walidator.Validate(t)
-	c.Assert(err, IsNil)
+	v := test1{}
+	err := walidator.Validate(v)
+	c.Assert(err, qt.IsNil)
 
 	errs := walidator.Valid(test2{}, "-")
-	c.Assert(errs, IsNil)
+	c.Assert(errs, qt.IsNil)
 }
 
-func (ms *MySuite) TestUnknownTag(c *C) {
+func TestUnknownTag(t *testing.T) {
+	c := qt.New(t)
 	type test struct {
 		A int `validate:"foo"`
 	}
-	t := test{}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	v := test{}
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasLen, 1)
-	c.Assert(errs["A"], HasError, walidator.ErrUnknownTag)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.HasLen, 1)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrUnknownTag)
 }
 
-func (ms *MySuite) TestValidateStructWithSlice(c *C) {
+func TestValidateStructWithSlice(t *testing.T) {
+	c := qt.New(t)
 	type test2 struct {
 		Num    int    `validate:"max=2"`
 		String string `validate:"nonzero"`
@@ -370,21 +372,22 @@ func (ms *MySuite) TestValidateStructWithSlice(c *C) {
 		Slices []test2 `validate:"len=1"`
 	}
 
-	t := test{
+	v := test{
 		Slices: []test2{{
 			Num:    6,
 			String: "foo",
 		}},
 	}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["Slices[0].Num"], HasError, walidator.ErrMax)
-	c.Assert(errs["Slices[0].String"], IsNil) // sanity check
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["Slices[0].Num"], qt.Contains, walidator.ErrMax)
+	c.Assert(errs["Slices[0].String"], qt.IsNil) // sanity check
 }
 
-func (ms *MySuite) TestValidateStructWithNestedSlice(c *C) {
+func TestValidateStructWithNestedSlice(t *testing.T) {
+	c := qt.New(t)
 	type test2 struct {
 		Num int `validate:"max=2"`
 	}
@@ -393,17 +396,18 @@ func (ms *MySuite) TestValidateStructWithNestedSlice(c *C) {
 		Slices [][]test2
 	}
 
-	t := test{
+	v := test{
 		Slices: [][]test2{{{Num: 6}}},
 	}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["Slices[0][0].Num"], HasError, walidator.ErrMax)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["Slices[0][0].Num"], qt.Contains, walidator.ErrMax)
 }
 
-func (ms *MySuite) TestValidateStructWithMap(c *C) {
+func TestValidateStructWithMap(t *testing.T) {
+	c := qt.New(t)
 	type test2 struct {
 		Num int `validate:"max=2"`
 	}
@@ -413,7 +417,7 @@ func (ms *MySuite) TestValidateStructWithMap(c *C) {
 		StructKeyMap map[test2]test2
 	}
 
-	t := test{
+	v := test{
 		Map: map[string]test2{
 			"hello": {Num: 6},
 		},
@@ -421,48 +425,51 @@ func (ms *MySuite) TestValidateStructWithMap(c *C) {
 			{Num: 3}: {Num: 1},
 		},
 	}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, qt.Equals, true)
 
-	c.Assert(errs["Map[hello](value).Num"], HasError, walidator.ErrMax)
-	c.Assert(errs["StructKeyMap[{Num:3}](key).Num"], HasError, walidator.ErrMax)
+	c.Assert(errs["Map[hello](value).Num"], qt.Contains, walidator.ErrMax)
+	c.Assert(errs["StructKeyMap[{Num:3}](key).Num"], qt.Contains, walidator.ErrMax)
 }
 
-func (ms *MySuite) TestUnsupported(c *C) {
+func TestUnsupported(t *testing.T) {
+	c := qt.New(t)
 	type test struct {
 		A int     `validate:"regexp=a.*b"`
 		B float64 `validate:"regexp=.*"`
 	}
-	t := test{}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	v := test{}
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasLen, 2)
-	c.Assert(errs["A"], HasError, walidator.ErrUnsupported)
-	c.Assert(errs["B"], HasError, walidator.ErrUnsupported)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.HasLen, 2)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrUnsupported)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrUnsupported)
 }
 
-func (ms *MySuite) TestBadParameter(c *C) {
+func TestBadParameter(t *testing.T) {
+	c := qt.New(t)
 	type test struct {
 		A string `validate:"min="`
 		B string `validate:"len=="`
 		C string `validate:"max=foo"`
 	}
-	t := test{}
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	v := test{}
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasLen, 3)
-	c.Assert(errs["A"], HasError, walidator.ErrBadParameter)
-	c.Assert(errs["B"], HasError, walidator.ErrBadParameter)
-	c.Assert(errs["C"], HasError, walidator.ErrBadParameter)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.HasLen, 3)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrBadParameter)
+	c.Assert(errs["B"], qt.Contains, walidator.ErrBadParameter)
+	c.Assert(errs["C"], qt.Contains, walidator.ErrBadParameter)
 }
 
-func (ms *MySuite) TestCopy(c *C) {
+func TestCopy(t *testing.T) {
+	c := qt.New(t)
 	v := walidator.NewValidator()
 	// WithTag calls copy, so we just copy the validator with the same tag
 	v2 := v.WithTag("validate")
@@ -473,44 +480,46 @@ func (ms *MySuite) TestCopy(c *C) {
 		A string `validate:"custom"`
 	}
 	err := v2.Validate(test{})
-	c.Assert(err, IsNil)
+	c.Assert(err, qt.IsNil)
 
 	err = v.Validate(test{})
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs, HasLen, 1)
-	c.Assert(errs["A"], HasError, walidator.ErrUnknownTag)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs, qt.HasLen, 1)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrUnknownTag)
 }
 
-func (ms *MySuite) TestTagEscape(c *C) {
+func TestTagEscape(t *testing.T) {
+	c := qt.New(t)
 	type test struct {
 		A string `validate:"min=0,regexp=^a{3\\,10}"`
 	}
-	t := test{"aaaa"}
-	err := walidator.Validate(t)
-	c.Assert(err, IsNil)
+	v := test{"aaaa"}
+	err := walidator.Validate(v)
+	c.Assert(err, qt.IsNil)
 
 	t2 := test{"aa"}
 	err = walidator.Validate(t2)
-	c.Assert(err, NotNil)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A"], HasError, walidator.ErrRegexp)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A"], qt.Contains, walidator.ErrRegexp)
 }
 
-func (ms *MySuite) TestJSONTag(c *C) {
+func TestJSONTag(t *testing.T) {
+	c := qt.New(t)
 	type test struct {
 		A string `validate:"nonzero" json:"b,omitempty"`
 	}
 
-	var t test
-	err := walidator.Validate(t)
-	c.Assert(err, NotNil)
+	var v test
+	err := walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	errs, ok := err.(walidator.ErrorMap)
-	c.Assert(ok, Equals, true)
-	c.Assert(errs["A"], IsNil)
-	c.Assert(errs["b"], HasError, walidator.ErrZeroValue)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(errs["A"], qt.IsNil)
+	c.Assert(errs["b"], qt.Contains, walidator.ErrZeroValue)
 }
 
 type tree struct {
@@ -518,8 +527,9 @@ type tree struct {
 	Left, Right *tree
 }
 
-func (ms *MySuite) TestRecursiveType(c *C) {
-	t := &tree{
+func TestRecursiveType(t *testing.T) {
+	c := qt.New(t)
+	v := &tree{
 		Val: 1,
 		Left: &tree{
 			Val: 2,
@@ -531,9 +541,9 @@ func (ms *MySuite) TestRecursiveType(c *C) {
 			Val: 4,
 		},
 	}
-	err := walidator.Validate(t)
-	c.Assert(err, IsNil)
-	t = &tree{
+	err := walidator.Validate(v)
+	c.Assert(err, qt.IsNil)
+	v = &tree{
 		Left: &tree{
 			Right: &tree{},
 		},
@@ -541,12 +551,11 @@ func (ms *MySuite) TestRecursiveType(c *C) {
 			Val: 4,
 		},
 	}
-	err = walidator.Validate(t)
-	c.Assert(err, NotNil)
-	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
+	err = walidator.Validate(v)
+	c.Assert(err, qt.Not(qt.IsNil))
 	data, err := json.MarshalIndent(err, "", "\t")
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, `
+	c.Assert(err, qt.IsNil)
+	c.Assert(string(data), qt.Equals, `
 {
 	"Left.Right.Val": [
 		"less than min"
@@ -560,63 +569,32 @@ func (ms *MySuite) TestRecursiveType(c *C) {
 }`[1:])
 }
 
-func (ms *MySuite) TestInterfaceField(c *C) {
+func TestInterfaceField(t *testing.T) {
+	c := qt.New(t)
 	var x struct {
 		X interface{} `validate:"max=1.0"`
 	}
 	x.X = "hello"
 	err := walidator.Validate(x)
-	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
-	err1 := err.(walidator.ErrorMap)
-	c.Assert(err1["X"], ErrorMatches, `bad parameter`)
+
+	err1, ok := err.(walidator.ErrorMap)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(err1["X"], qt.ErrorMatches, `bad parameter`)
 
 	// Test the cached path.
 	err = walidator.Validate(x)
-	c.Assert(err, FitsTypeOf, walidator.ErrorMap{})
-	err1 = err.(walidator.ErrorMap)
-	c.Assert(err1["X"], ErrorMatches, `bad parameter`)
+	err1, ok = err.(walidator.ErrorMap)
+	c.Assert(ok, qt.Equals, true)
+	c.Assert(err1["X"], qt.ErrorMatches, `bad parameter`)
 
 	// Test that it passes with an appropriate type
 	x.X = 0.3
 	err = walidator.Validate(x)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, qt.Equals, nil)
 
 	// ... and a pointer to that type
 	f := 0.9
 	x.X = &f
 	err = walidator.Validate(x)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, qt.Equals, nil)
 }
-
-type hasErrorChecker struct {
-	*CheckerInfo
-}
-
-func (c *hasErrorChecker) Check(params []interface{}, names []string) (bool, string) {
-	var (
-		ok    bool
-		slice []error
-		value error
-	)
-	slice, ok = params[0].(walidator.ErrorArray)
-	if !ok {
-		return false, "First parameter is not an Errorarray"
-	}
-	value, ok = params[1].(error)
-	if !ok {
-		return false, "Second parameter is not an error"
-	}
-
-	for _, v := range slice {
-		if v == value {
-			return true, ""
-		}
-	}
-	return false, ""
-}
-
-func (c *hasErrorChecker) Info() *CheckerInfo {
-	return c.CheckerInfo
-}
-
-var HasError = &hasErrorChecker{&CheckerInfo{Name: "HasError", Params: []string{"HasError", "expected to contain"}}}
