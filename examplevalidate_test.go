@@ -17,10 +17,10 @@
 package walidator_test
 
 import (
+	"encoding/json"
 	"fmt"
-	"sort"
 
-	"github.com/heetch/walidator"
+	"github.com/heetch/walidator/v4"
 )
 
 // This example demonstrates a custom function to process template text.
@@ -54,78 +54,34 @@ func ExampleValidate() {
 	err := walidator.Validate(ve)
 	if err == nil {
 		fmt.Println("Values are valid.")
-	} else {
-		errs := err.(walidator.ErrorMap)
-		// See if Address was empty
-		if errs["Address.Street"][0] == walidator.ErrZeroValue {
-			fmt.Println("Street cannot be empty.")
-		}
-
-		// Iterate through the list of fields and respective errors
-		fmt.Println("Invalid due to fields:")
-
-		// Here we have to sort the arrays to ensure map ordering does not
-		// fail our example, typically it's ok to just range through the err
-		// list when order is not important.
-		var errOuts []string
-		for f, e := range errs {
-			errOuts = append(errOuts, fmt.Sprintf("\t - %s (%v)\n", f, e))
-		}
-
-		// Again this part is extraneous and you should not need this in real
-		// code.
-		sort.Strings(errOuts)
-		for _, str := range errOuts {
-			fmt.Print(str)
-		}
+		return
 	}
 
+	fmt.Println("Invalid with errors:")
+	data, _ := json.MarshalIndent(err, "\t", "\t")
+	fmt.Println("\t" + string(data))
 	// Output:
-	// Street cannot be empty.
-	// Invalid due to fields:
-	//	 - Address.Street (zero value)
-	// 	 - Age (less than min)
-	// 	 - Email (regular expression mismatch)
-}
-
-// This example shows how to use the Valid helper
-// function to validator any number of values
-func ExampleValid() {
-	err := walidator.Valid(42, "min=10,max=100,nonzero")
-	fmt.Printf("42: valid=%v, errs=%v\n", err == nil, err)
-
-	var ptr *int
-	if err := walidator.Valid(ptr, "nonzero"); err != nil {
-		fmt.Println("ptr: Invalid nil pointer.")
-	}
-
-	err = walidator.Valid("ABBA", "regexp=[ABC]*")
-	fmt.Printf("ABBA: valid=%v\n", err == nil)
-
-	// Output:
-	// 42: valid=true, errs=<nil>
-	// ptr: Invalid nil pointer.
-	// ABBA: valid=true
-}
-
-// This example shows you how to change the tag name
-func ExampleSetTag() {
-	type T struct {
-		A int `foo:"nonzero" bar:"min=10"`
-	}
-	t := T{5}
-	v := walidator.NewValidator()
-	v.SetTag("foo")
-	err := v.Validate(t)
-	fmt.Printf("foo --> valid: %v, errs: %v\n", err == nil, err)
-	v.SetTag("bar")
-	err = v.Validate(t)
-	errs := err.(walidator.ErrorMap)
-	fmt.Printf("bar --> valid: %v, errs: %v\n", err == nil, errs)
-
-	// Output:
-	// foo --> valid: true, errs: <nil>
-	// bar --> valid: false, errs: A: less than min
+	//Invalid with errors:
+	//	{
+	//		"Address.Street": [
+	//			{
+	//				"kind": "nonzero",
+	//				"msg": "zero value"
+	//			}
+	//		],
+	//		"Age": [
+	//			{
+	//				"kind": "min",
+	//				"msg": "less than min"
+	//			}
+	//		],
+	//		"Email": [
+	//			{
+	//				"kind": "regexp",
+	//				"msg": "regular expression mismatch"
+	//			}
+	//		]
+	//	}
 }
 
 // This example shows you how to change the tag name
@@ -134,12 +90,15 @@ func ExampleWithTag() {
 		A int `foo:"nonzero" bar:"min=10"`
 	}
 	t := T{5}
-	err := walidator.WithTag("foo").Validate(t)
+	v := walidator.New().WithTag("foo")
+	err := v.Validate(t)
 	fmt.Printf("foo --> valid: %v, errs: %v\n", err == nil, err)
-	err = walidator.WithTag("bar").Validate(t)
+
+	v = walidator.New().WithTag("bar")
+	err = v.Validate(t)
 	fmt.Printf("bar --> valid: %v, errs: %v\n", err == nil, err)
 
 	// Output:
 	// foo --> valid: true, errs: <nil>
-	// bar --> valid: false, errs: A: less than min
+	// bar --> valid: false, errs: validation error: A: less than min
 }

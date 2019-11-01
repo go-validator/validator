@@ -3,7 +3,7 @@ package walidator_test
 import (
 	"testing"
 
-	"github.com/heetch/walidator"
+	"github.com/heetch/walidator/v4"
 )
 
 func BenchmarkValidate(b *testing.B) {
