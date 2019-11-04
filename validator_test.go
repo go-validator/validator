@@ -60,12 +60,12 @@ func (i Impl2) Foo() string {
 }
 
 type TestStruct struct {
-	A   int    `validate:"nonzero"`
+	A   int    `validate:"nonzero" json:"a"`
 	B   string `validate:"len=8,min=6,max=4"`
 	Sub struct {
-		A int `validate:"nonzero"`
+		A int `validate:"nonzero" json:"sub_a"`
 		B string
-		C float64 `validate:"nonzero,min=1"`
+		C float64 `validate:"nonzero,min=1" json:"c_is_a_float"`
 		D *string `validate:"nonzero"`
 	}
 	D *Simple `validate:"nonzero"`
@@ -662,6 +662,30 @@ func (ms *MySuite) TestErrors(c *C) {
 	sort.Strings(errStringParts)
 
 	c.Assert(expectedParts, DeepEquals, errStringParts)
+}
+
+func (ms *MySuite) TestJSONPrint(c *C) {
+	t := TestStruct{
+		A: 0,
+	}
+	err := validator.WithPrintJSON(true).Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], IsNil)
+	c.Assert(errs["a"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestJSONPrintOff(c *C) {
+	t := TestStruct{
+		A: 0,
+	}
+	err := validator.WithPrintJSON(false).Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["a"], IsNil)
 }
 
 type hasErrorChecker struct {

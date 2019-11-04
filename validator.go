@@ -357,6 +357,7 @@ func (mv *Validator) validValue(v reflect.Value, tags string) error {
 
 // validateVar validates one single variable
 func (mv *Validator) validateVar(v interface{}, tag string) error {
+	fmt.Println("tag:" + tag)
 	tags, err := mv.parseTags(tag)
 	if err != nil {
 		// unknown tag found, give up.
@@ -419,4 +420,18 @@ func (mv *Validator) parseTags(t string) ([]tag, error) {
 
 	}
 	return tags, nil
+}
+
+func parseName(tag string) string {
+	if tag == "" {
+		return ""
+	}
+
+	name := strings.SplitN(tag, ",", 2)[0]
+
+	// if the field as be skipped in json, just return an empty string
+	if name == "-" {
+		return ""
+	}
+	return name
 }
