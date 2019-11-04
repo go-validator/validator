@@ -119,6 +119,10 @@ type Validator struct {
 	// validationFuncs is a map of ValidationFuncs indexed
 	// by their name.
 	validationFuncs map[string]ValidationFunc
+	// printJSON set to true will make errors print with the
+	// name of their json field instead of their struct tag.
+	// If no json tag is present the name of the struct is used.
+	printJSON bool
 }
 
 // Helper validator so users can use the
@@ -137,6 +141,7 @@ func NewValidator() *Validator {
 			"regexp":  regex,
 			"nonnil":  nonnil,
 		},
+		printJSON: false,
 	}
 }
 
@@ -166,6 +171,32 @@ func (mv *Validator) WithTag(tag string) *Validator {
 	return v
 }
 
+// SetPrintJSON allows you to print errors with josn tag names present in struct tags
+func SetPrintJSON(printJSON bool) {
+	defaultValidator.SetPrintJSON(printJSON)
+}
+
+// SetPrintJSON allows you to print errors with josn tag names present in struct tags
+func (mv *Validator) SetPrintJSON(printJSON bool) {
+	mv.printJSON = printJSON
+}
+
+// WithPrintJSON creates a new Validator with printJSON set to new value. It is
+// useful to chain-call with Validate so we don't change the print option
+// permanently: validator.WithPrintJSON(true).Validate(t)
+func WithPrintJSON(printJSON bool) *Validator {
+	return defaultValidator.WithPrintJSON(printJSON)
+}
+
+// WithPrintJSON creates a new Validator with printJSON set to new value. It is
+// useful to chain-call with Validate so we don't change the print option
+// permanently: validator.WithTag("foo").WithPrintJSON(true).Validate(t)
+func (mv *Validator) WithPrintJSON(printJSON bool) *Validator {
+	v := mv.copy()
+	v.SetPrintJSON(printJSON)
+	return v
+}
+
 // Copy a validator
 func (mv *Validator) copy() *Validator {
 	newFuncs := map[string]ValidationFunc{}
@@ -175,6 +206,7 @@ func (mv *Validator) copy() *Validator {
 	return &Validator{
 		tagName:         mv.tagName,
 		validationFuncs: newFuncs,
+		printJSON:       mv.printJSON,
 	}
 }
 
@@ -280,7 +312,14 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 	})
 
 	if len(errs) > 0 {
-		m[fieldDef.Name] = errs
+		n := fieldDef.Name
+
+		if mv.printJSON {
+			if jn := parseName(fieldDef.Tag.Get("json")); jn != "" {
+				n = jn
+			}
+		}
+		m[n] = errs
 	}
 	return nil
 }
