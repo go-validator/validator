@@ -121,7 +121,7 @@ type Validator struct {
 	validationFuncs map[string]ValidationFunc
 	// printJSON set to true will make errors print with the
 	// name of their json field instead of their struct tag.
-	// If no json tag is present the name of the struct is used.
+	// If no json tag is present the name of the struct field is used.
 	printJSON bool
 }
 
@@ -171,12 +171,12 @@ func (mv *Validator) WithTag(tag string) *Validator {
 	return v
 }
 
-// SetPrintJSON allows you to print errors with josn tag names present in struct tags
+// SetPrintJSON allows you to print errors with json tag names present in struct tags
 func SetPrintJSON(printJSON bool) {
 	defaultValidator.SetPrintJSON(printJSON)
 }
 
-// SetPrintJSON allows you to print errors with josn tag names present in struct tags
+// SetPrintJSON allows you to print errors with json tag names present in struct tags
 func (mv *Validator) SetPrintJSON(printJSON bool) {
 	mv.printJSON = printJSON
 }
