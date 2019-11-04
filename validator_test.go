@@ -688,6 +688,17 @@ func (ms *MySuite) TestJSONPrintOff(c *C) {
 	c.Assert(errs["a"], IsNil)
 }
 
+func (ms *MySuite) TestJSONPrintNoTag(c *C) {
+	t := TestStruct{
+		B: "te",
+	}
+	err := validator.WithPrintJSON(true).Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["B"], HasError, validator.ErrLen)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }

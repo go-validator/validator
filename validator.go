@@ -357,7 +357,6 @@ func (mv *Validator) validValue(v reflect.Value, tags string) error {
 
 // validateVar validates one single variable
 func (mv *Validator) validateVar(v interface{}, tag string) error {
-	fmt.Println("tag:" + tag)
 	tags, err := mv.parseTags(tag)
 	if err != nil {
 		// unknown tag found, give up.
