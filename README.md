@@ -23,7 +23,7 @@ import (
 Usage
 =====
 
-Please see http://godoc.org/gopkg.in/validator.v2 for detailed usage docs.
+Please see [the godoc page](http://godoc.org/github.com/heetch/validator) for detailed usage docs.
 A simple example would be.
 
 ```go
@@ -35,7 +35,7 @@ type NewUserRequest struct {
 }
 
 nur := NewUserRequest{Username: "something", Age: 20}
-if errs := validator.Validate(nur); errs != nil {
+if err := validator.Validate(nur); err != nil {
 	// values not valid, deal with errors here
 }
 ```
