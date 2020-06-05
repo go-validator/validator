@@ -79,8 +79,9 @@ nonzero
 	(Usage: nonzero)
 
 regexp
-	Only valid for string types, it will validator that the
+	Only valid for string types, it will validate that the
 	value matches the regular expression provided as parameter.
+	Commas need to be escaped with 2 backslashes `\\`.
 	(Usage: regexp=^a.*b$)
 
 nonnil
