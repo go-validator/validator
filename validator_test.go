@@ -699,6 +699,74 @@ func (ms *MySuite) TestJSONPrintNoTag(c *C) {
 	c.Assert(errs["B"], HasError, validator.ErrLen)
 }
 
+func (ms *MySuite) TestValidateSlice(c *C) {
+	type test2 struct {
+		Num    int    `validate:"max=2"`
+		String string `validate:"nonzero"`
+	}
+
+	err := validator.Validate([]test2{
+		{
+			Num:    6,
+			String: "foo",
+		},
+		{
+			Num:    1,
+			String: "foo",
+		},
+	})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["[0].Num"], HasError, validator.ErrMax)
+	c.Assert(errs["[0].String"], IsNil) // sanity check
+	c.Assert(errs["[1].Num"], IsNil)    // sanity check
+	c.Assert(errs["[1].String"], IsNil) // sanity check
+}
+
+func (ms *MySuite) TestValidateMap(c *C) {
+	type test2 struct {
+		Num    int    `validate:"max=2"`
+		String string `validate:"nonzero"`
+	}
+
+	err := validator.Validate(map[string]test2{
+		"first": {
+			Num:    6,
+			String: "foo",
+		},
+		"second": {
+			Num:    1,
+			String: "foo",
+		},
+	})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["[first](value).Num"], HasError, validator.ErrMax)
+	c.Assert(errs["[first](value).String"], IsNil)  // sanity check
+	c.Assert(errs["[second](value).Num"], IsNil)    // sanity check
+	c.Assert(errs["[second](value).String"], IsNil) // sanity check
+
+	err = validator.Validate(map[test2]string{
+		{
+			Num:    6,
+			String: "foo",
+		}: "first",
+		{
+			Num:    1,
+			String: "foo",
+		}: "second",
+	})
+	c.Assert(err, NotNil)
+	errs, ok = err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["[{Num:6 String:foo}](key).Num"], HasError, validator.ErrMax)
+	c.Assert(errs["[{Num:6 String:foo}](key).String"], IsNil) // sanity check
+	c.Assert(errs["[{Num:1 String:foo}](key).Num"], IsNil)    // sanity check
+	c.Assert(errs["[{Num:1 String:foo}](key).String"], IsNil) // sanity check
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
