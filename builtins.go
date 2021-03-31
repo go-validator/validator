@@ -278,7 +278,7 @@ func nonnil(v interface{}, param string) error {
 	// the value for a pointer field, either way, its not
 	// nil
 	switch st.Kind() {
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Ptr, reflect.Interface, reflect.Func:
 		if st.IsNil() {
 			return ErrZeroValue
 		}

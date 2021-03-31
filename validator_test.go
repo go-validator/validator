@@ -767,6 +767,24 @@ func (ms *MySuite) TestValidateMap(c *C) {
 	c.Assert(errs["[{Num:1 String:foo}](key).String"], IsNil) // sanity check
 }
 
+func (ms *MySuite) TestNonNilFunction(c *C) {
+	type test struct {
+		A func() `validate:"nonnil"`
+	}
+
+	err := validator.Validate(test{})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 1)
+	c.Assert(errs["A"], HasError, validator.ErrZeroValue)
+
+	err = validator.Validate(test{
+		A: func() {},
+	})
+	c.Assert(err, IsNil)
+}
+
 type hasErrorChecker struct {
 	*CheckerInfo
 }
