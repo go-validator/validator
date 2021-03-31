@@ -576,7 +576,9 @@ func (ms *MySuite) TestPrivateFields(c *C) {
 		b string `validate:"min=1"`
 	}
 
-	err := validator.Validate(test{})
+	err := validator.Validate(test{
+		b: "",
+	})
 	c.Assert(err, IsNil)
 }
 
@@ -783,6 +785,40 @@ func (ms *MySuite) TestNonNilFunction(c *C) {
 		A: func() {},
 	})
 	c.Assert(err, IsNil)
+}
+
+func (ms *MySuite) TestTypeAliases(c *C) {
+	type A string
+	type B int64
+	type test struct {
+		A1 A  `validate:"regexp=^[0-9]+$"`
+		A2 *A `validate:"regexp=^[0-9]+$"`
+		B1 B  `validate:"min=10"`
+		B2 B  `validate:"max=10"`
+	}
+	a123 := A("123")
+	err := validator.Validate(test{
+		A1: a123,
+		A2: &a123,
+		B1: B(11),
+		B2: B(9),
+	})
+	c.Assert(err, IsNil)
+
+	abc := A("abc")
+	err = validator.Validate(test{
+		A1: abc,
+		A2: &abc,
+		B2: B(11),
+	})
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs, HasLen, 4)
+	c.Assert(errs["A1"], HasError, validator.ErrRegexp)
+	c.Assert(errs["A2"], HasError, validator.ErrRegexp)
+	c.Assert(errs["B1"], HasError, validator.ErrMin)
+	c.Assert(errs["B2"], HasError, validator.ErrMax)
 }
 
 type hasErrorChecker struct {

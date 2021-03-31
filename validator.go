@@ -114,11 +114,11 @@ type ValidationFunc func(v interface{}, param string) error
 
 // Validator implements a validator
 type Validator struct {
-	// Tag name being used.
-	tagName string
 	// validationFuncs is a map of ValidationFuncs indexed
 	// by their name.
 	validationFuncs map[string]ValidationFunc
+	// Tag name being used.
+	tagName string
 	// printJSON set to true will make errors print with the
 	// name of their json field instead of their struct tag.
 	// If no json tag is present the name of the struct field is used.
