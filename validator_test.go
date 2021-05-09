@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/crossid/validator"
 	. "gopkg.in/check.v1"
-	"gopkg.in/validator.v2"
 )
 
 func Test(t *testing.T) {
@@ -59,15 +59,17 @@ func (i Impl2) Foo() string {
 	return i.F
 }
 
+type SubStruct struct {
+	A int `validate:"nonzero" json:"sub_a"`
+	B string
+	C float64 `validate:"nonzero,min=1" json:"c_is_a_float"`
+	D *string `validate:"nonzero"`
+}
+
 type TestStruct struct {
 	A   int    `validate:"nonzero" json:"a"`
 	B   string `validate:"len=8,min=6,max=4"`
-	Sub struct {
-		A int `validate:"nonzero" json:"sub_a"`
-		B string
-		C float64 `validate:"nonzero,min=1" json:"c_is_a_float"`
-		D *string `validate:"nonzero"`
-	}
+	Sub  SubStruct `json:"sub"`
 	D *Simple `validate:"nonzero"`
 	E I       `validate:nonzero`
 }
@@ -669,6 +671,12 @@ func (ms *MySuite) TestErrors(c *C) {
 func (ms *MySuite) TestJSONPrint(c *C) {
 	t := TestStruct{
 		A: 0,
+		Sub: SubStruct{
+			A: 0,
+			B: "",
+			C: 1.0,
+			D: nil,
+		},
 	}
 	err := validator.WithPrintJSON(true).Validate(t)
 	c.Assert(err, NotNil)
@@ -676,6 +684,9 @@ func (ms *MySuite) TestJSONPrint(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(errs["A"], IsNil)
 	c.Assert(errs["a"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["Sub.sub_a"], IsNil)
+	c.Assert(errs["sub.sub_a"], HasError, validator.ErrZeroValue)
+
 }
 
 func (ms *MySuite) TestJSONPrintOff(c *C) {
