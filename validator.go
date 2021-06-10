@@ -140,6 +140,7 @@ func NewValidator() *Validator {
 			"max":     max,
 			"regexp":  regex,
 			"nonnil":  nonnil,
+			"in":      in,
 		},
 		printJSON: false,
 	}
