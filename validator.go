@@ -73,6 +73,8 @@ var (
 	ErrInvalid = TextErr{errors.New("invalid value")}
 	// ErrCannotValidate is the error returned when a struct is unexported
 	ErrCannotValidate = TextErr{errors.New("cannot validate unexported struct")}
+	// ErrRepeating is the error returned when the elements are not unique
+	ErrRepeating = TextErr{errors.New("repeating value found")}
 )
 
 // ErrorMap is a map which contains all errors from validating a struct.
@@ -140,6 +142,7 @@ func NewValidator() *Validator {
 			"max":     max,
 			"regexp":  regex,
 			"nonnil":  nonnil,
+			"unique":  unique,
 		},
 		printJSON: false,
 	}
