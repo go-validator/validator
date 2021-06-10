@@ -289,8 +289,8 @@ func nonnil(v interface{}, param string) error {
 	return nil
 }
 
-// in validates that the given value exists in list of given values
-func in(v interface{}, param string) error {
+// list validates that the given value exists in the list of values
+func list(v interface{}, param string) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() == reflect.Ptr {
 		if value.IsNil() {
