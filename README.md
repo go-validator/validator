@@ -86,6 +86,13 @@ regexp
 
 nonnil
 	Validates that the given value is not nil. (Usage: nonnil)
+
+in
+	Validates that the given value is present in a list of
+	provided values. These values should be provided inside
+	square brackets separated by comma without any additional
+	spaces. It can be used with strings, integers and floating
+	point numbers. (Usage: in=[FOO,BAR,BAZ])
 ```
 
 Custom validators
