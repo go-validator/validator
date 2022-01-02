@@ -46,7 +46,8 @@ func nonzero(v interface{}, param string) error {
 	case reflect.Invalid:
 		valid = false // always invalid
 	case reflect.Struct:
-		valid = true // always valid since only nil pointers are empty
+		isZeroer, doesIsZero := v.(providesIsZero)
+		valid = !doesIsZero || !isZeroer.IsZero()
 	default:
 		return ErrUnsupported
 	}
@@ -55,6 +56,11 @@ func nonzero(v interface{}, param string) error {
 		return ErrZeroValue
 	}
 	return nil
+}
+
+// helper for structs implementing IsZero() like time.Time
+type providesIsZero interface {
+	IsZero() bool
 }
 
 // length tests whether a variable's length is equal to a given
