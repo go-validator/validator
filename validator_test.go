@@ -59,6 +59,10 @@ func (i Impl2) Foo() string {
 	return i.F
 }
 
+type NestedStruct struct {
+	A string `validate:"nonzero" json:"a"`
+}
+
 type TestStruct struct {
 	A   int    `validate:"nonzero" json:"a"`
 	B   string `validate:"len=8,min=6,max=4"`
@@ -70,6 +74,12 @@ type TestStruct struct {
 	}
 	D *Simple `validate:"nonzero"`
 	E I       `validate:nonzero`
+}
+
+type TestCompositedStruct struct {
+	NestedStruct `json:",inline"`
+	OtherNested  NestedStruct   `json:"otherNested"`
+	Items        []NestedStruct `json:"nestedItems"`
 }
 
 func (ms *MySuite) TestValidate(c *C) {
@@ -676,6 +686,19 @@ func (ms *MySuite) TestJSONPrint(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(errs["A"], IsNil)
 	c.Assert(errs["a"], HasError, validator.ErrZeroValue)
+}
+
+func (ms *MySuite) TestPrintNestedJson(c *C) {
+	t := TestCompositedStruct{
+		Items: []NestedStruct{{}},
+	}
+	err := validator.WithPrintJSON(true).Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["a"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["otherNested.a"], HasError, validator.ErrZeroValue)
+	c.Assert(errs["nestedItems[0].a"], HasError, validator.ErrZeroValue)
 }
 
 func (ms *MySuite) TestJSONPrintOff(c *C) {

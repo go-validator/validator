@@ -304,21 +304,24 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 	}
 
 	// no-op if field is not a struct, interface, array, slice or map
+	fn := mv.fieldName(fieldDef)
 	mv.deepValidateCollection(fieldVal, m, func() string {
-		return fieldDef.Name
+		return fn
 	})
 
 	if len(errs) > 0 {
-		n := fieldDef.Name
-
-		if mv.printJSON {
-			if jn := parseName(fieldDef.Tag.Get("json")); jn != "" {
-				n = jn
-			}
-		}
-		m[n] = errs
+		m[fn] = errs
 	}
 	return nil
+}
+
+func (mv *Validator) fieldName(fieldDef reflect.StructField) string {
+	if mv.printJSON {
+		if jsonTagValue := fieldDef.Tag.Get("json"); jsonTagValue != "" {
+			return parseName(jsonTagValue)
+		}
+	}
+	return fieldDef.Name
 }
 
 func (mv *Validator) deepValidateCollection(f reflect.Value, m ErrorMap, fnameFn func() string) {
@@ -467,11 +470,18 @@ func parseName(tag string) string {
 		return ""
 	}
 
-	name := strings.SplitN(tag, ",", 2)[0]
-
+	tags := strings.Split(tag, ",")
+	name := tags[0]
 	// if the field as be skipped in json, just return an empty string
 	if name == "-" {
 		return ""
 	}
+
+	for _, v := range tags {
+		if v == "inline" {
+			return ""
+		}
+	}
+
 	return name
 }
