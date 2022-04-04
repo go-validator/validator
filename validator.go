@@ -317,7 +317,7 @@ func (mv *Validator) validateField(fieldDef reflect.StructField, fieldVal reflec
 
 func (mv *Validator) fieldName(fieldDef reflect.StructField) string {
 	if mv.printJSON {
-		if jsonTagValue := fieldDef.Tag.Get("json"); jsonTagValue != "" {
+		if jsonTagValue, ok := fieldDef.Tag.Lookup("json"); ok {
 			return parseName(jsonTagValue)
 		}
 	}
@@ -470,18 +470,11 @@ func parseName(tag string) string {
 		return ""
 	}
 
-	tags := strings.Split(tag, ",")
-	name := tags[0]
+	name := strings.SplitN(tag, ",", 2)[0]
+
 	// if the field as be skipped in json, just return an empty string
 	if name == "-" {
 		return ""
 	}
-
-	for _, v := range tags {
-		if v == "inline" {
-			return ""
-		}
-	}
-
 	return name
 }

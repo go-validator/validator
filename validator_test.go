@@ -77,7 +77,7 @@ type TestStruct struct {
 }
 
 type TestCompositedStruct struct {
-	NestedStruct `json:",inline"`
+	NestedStruct `json:""`
 	OtherNested  NestedStruct   `json:"otherNested"`
 	Items        []NestedStruct `json:"nestedItems"`
 }
