@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/validator.v2"
@@ -842,6 +843,24 @@ func (ms *MySuite) TestTypeAliases(c *C) {
 	c.Assert(errs["A2"], HasError, validator.ErrRegexp)
 	c.Assert(errs["B1"], HasError, validator.ErrMin)
 	c.Assert(errs["B2"], HasError, validator.ErrMax)
+}
+
+func (ms *MySuite) TestProvidesIsZero(c *C) {
+
+	type test struct {
+		T time.Time `validate:"nonzero"`
+	}
+
+	t := test{}
+	err := validator.Validate(t)
+	c.Assert(err, NotNil)
+	errs, ok := err.(validator.ErrorMap)
+	c.Assert(ok, Equals, true)
+	c.Assert(errs["T"], HasError, validator.ErrZeroValue)
+
+	t.T = time.Now()
+	err = validator.Validate(t)
+	c.Assert(err, IsNil)
 }
 
 type hasErrorChecker struct {
