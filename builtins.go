@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -286,4 +287,67 @@ func nonnil(v interface{}, param string) error {
 		return ErrZeroValue
 	}
 	return nil
+}
+
+// list validates that the given value exists in the list of values
+func list(v interface{}, param string) error {
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return nil
+		}
+		value = value.Elem()
+	}
+
+	// get array of possible values
+	l := len(param)
+	if l < 3 || param[0] != '[' || param[l-1] != ']' {
+		return ErrBadParameter
+	}
+	param = param[1 : l-1]
+
+	possible := strings.Split(param, ",")
+
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		for _, str := range possible {
+			i, err := strconv.ParseInt(str, 10, 64)
+			if err != nil {
+				return ErrBadParameter
+			}
+			if value.Int() == i {
+				return nil
+			}
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		for _, str := range possible {
+			i, err := strconv.ParseUint(str, 10, 64)
+			if err != nil {
+				return ErrBadParameter
+			}
+			if value.Uint() == i {
+				return nil
+			}
+		}
+	case reflect.Float32, reflect.Float64:
+		for _, str := range possible {
+			f, err := strconv.ParseFloat(str, 64)
+			if err != nil {
+				return ErrBadParameter
+			}
+			if value.Float() == f {
+				return nil
+			}
+		}
+	case reflect.String:
+		for _, str := range possible {
+			if value.String() == str {
+				return nil
+			}
+		}
+	default:
+		return ErrUnsupported
+	}
+
+	return ErrInvalid
 }
