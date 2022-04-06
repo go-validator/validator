@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -83,9 +84,17 @@ type ErrorMap map[string]ErrorArray
 func (err ErrorMap) Error() string {
 	var b bytes.Buffer
 
-	for k, errs := range err {
-		if len(errs) > 0 {
-			b.WriteString(fmt.Sprintf("%s: %s, ", k, errs.Error()))
+	var keys []string
+	for k := range err {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		sortedErr := err[k]
+
+		if len(sortedErr) > 0 {
+			b.WriteString(fmt.Sprintf("%s: %s, ", k, sortedErr.Error()))
 		}
 	}
 
