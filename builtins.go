@@ -235,7 +235,7 @@ func regex(v interface{}, param string) error {
 	}
 
 	if !re.MatchString(s) {
-		return ErrRegexp
+		return TextErr{errors.New(fmt.Sprintf("regular expression mismatch - value: '%s', expected pattern: '%s'", s, param))}
 	}
 	return nil
 }
