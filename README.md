@@ -86,6 +86,9 @@ regexp
 
 nonnil
 	Validates that the given value is not nil. (Usage: nonnil)
+
+unique
+	Validates that the given values of an array or slice are unique. (Usage: unique)
 ```
 
 Custom validators

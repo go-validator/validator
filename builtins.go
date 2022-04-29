@@ -287,3 +287,31 @@ func nonnil(v interface{}, param string) error {
 	}
 	return nil
 }
+
+// unique validates uniqueness of elements of an array
+func unique(v interface{}, _ string) error {
+	arr := reflect.ValueOf(v)
+	if arr.Kind() == reflect.Ptr {
+		if arr.IsNil() {
+			return nil
+		}
+		arr = arr.Elem()
+	}
+	switch arr.Kind() {
+	case reflect.Slice, reflect.Array:
+		m := make(map[interface{}]bool)
+		for i := 0; i < arr.Len(); i++ {
+			val := arr.Index(i).Interface()
+			_, exists := m[val]
+			if exists {
+				return ErrRepeating
+			}
+
+			m[val] = true
+		}
+	default:
+		return ErrUnsupported
+	}
+
+	return nil
+}
